@@ -1,0 +1,615 @@
+/* ==========================================================================
+   The checkout, as one conversation with one answer at the end.
+
+   What the screen had was eight things asking for the eye at once - the mascot, two address
+   controls, delivery, wrapping, a code field, the book, a stepper and the button - with no
+   order between them. This file gives it the order a parent already has in their head, and
+   only that order:
+
+     1. what am I buying          the book, largest, first on the card
+     2. where is it going         the question, then the saved answers, then the fields
+     3. how is it getting there   two cards to compare, or one to confirm
+     4. wrapped?                  one optional card, said to be optional
+     5. what does it come to      the total, large, directly above
+     6. pay                       the one dominant button
+
+   Beki keeps the thread: one line, and it is always the next thing to do.
+
+   Loads after everything that ever styled this stage and restates what it overrides. Paper,
+   ink and one purple; gold spent once, on the button. Scoped to `.journey-checkout`.
+   ========================================================================== */
+
+.journey-checkout {
+  --ck-purple: #7a5cc4;
+  --ck-purple-tint: #f4f0fc;
+  --ck-card: #fff;
+}
+
+/* ---------------------------------------------------------------- Beki, the guide */
+.ux-beki-guide {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  margin: 0 0 20px;
+}
+.ux-beki-guide > img {
+  flex: none;
+  width: auto;
+  height: 78px;
+  filter: drop-shadow(0 8px 10px #2a1d5222);
+}
+/* The bubble sits on his shoulder, tail down-left toward him; a new line enters, it does not blink. */
+.ux-beki-bubble {
+  margin: 0 0 10px;
+  padding: 11px 14px;
+  border: 1px solid var(--jw-line);
+  border-radius: 14px 14px 14px 4px;
+  background: var(--ck-card);
+  color: var(--jw-ink);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.45;
+  animation: ux-bubble-in 0.28s ease-out;
+}
+@keyframes ux-bubble-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ux-beki-bubble {
+    animation: none;
+  }
+}
+
+/* ---------------------------------------------------------------- the questions */
+.ux-block {
+  margin-top: 24px;
+}
+.ux-block-title {
+  margin: 0 0 12px;
+  color: var(--jw-ink);
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1.3;
+}
+.ux-optional {
+  margin-left: 8px;
+  color: var(--jw-ink-soft);
+  font-size: 12px;
+  font-weight: 500;
+}
+/* Until there is an address to price: a line, not an empty control. */
+.ux-block-hint {
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px dashed #d9d1c4;
+  border-radius: 12px;
+  color: var(--jw-ink-soft);
+  font-size: 13px;
+  line-height: 1.45;
+}
+/* The fields no longer carry a label of their own above them; the block's title is the label. */
+.journey-checkout .ux-checkout-stage .ux-ship-fields {
+  margin-top: 0;
+}
+.journey-checkout .ux-checkout-stage .ux-address-list {
+  margin-top: 0;
+}
+
+/*
+  One idiom for "chosen", used by every choice on the page: the address, the method, the
+  wrapping. A purple edge and a purple tint, and a filled mark. Unchosen is paper with a
+  hairline. Nothing else on the page is purple, so chosen is the one thing it means.
+*/
+.journey-checkout .ux-address-choice,
+.ux-delivery-card,
+.ux-gift-card {
+  border: 1px solid #e2dbcf;
+  border-radius: 14px;
+  background: var(--ck-card);
+  transition:
+    border-color 0.16s ease,
+    background 0.16s ease,
+    box-shadow 0.16s ease;
+}
+.journey-checkout .ux-address-choice.is-on,
+.ux-delivery-card.is-on,
+.ux-gift-card.is-on {
+  border-color: var(--ck-purple);
+  background: var(--ck-purple-tint);
+  box-shadow: inset 0 0 0 1px var(--ck-purple);
+}
+.ux-delivery-card:hover,
+.ux-gift-card:hover,
+.journey-checkout .ux-address-choice:hover {
+  border-color: #c9bfe0;
+}
+.journey-checkout .ux-address-choice .ux-radio,
+.ux-delivery-card .ux-radio {
+  position: relative;
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border: 1.5px solid #c6bfd4;
+  border-radius: 50%;
+  background: #fff;
+}
+.journey-checkout .ux-address-choice.is-on .ux-radio,
+.ux-delivery-card.is-on .ux-radio {
+  border-color: var(--ck-purple);
+  background: var(--ck-purple);
+}
+.journey-checkout .ux-address-choice.is-on .ux-radio::after,
+.ux-delivery-card.is-on .ux-radio::after {
+  position: absolute;
+  inset: 5px;
+  border-radius: 50%;
+  background: #fff;
+  content: "";
+}
+/*
+  The address, whole. The rows used to cut a long street to an ellipsis, which on a phone hid
+  the one word that told two addresses apart; the parcel is going to the words, so they wrap.
+*/
+.journey-checkout .ux-address-choice strong,
+.journey-checkout .ux-address-choice small {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  line-height: 1.35;
+}
+.journey-checkout .ux-address-choice input:focus-visible ~ .ux-radio,
+.ux-delivery-card input:focus-visible ~ .ux-radio,
+.ux-gift-card input:focus-visible ~ .ux-switch {
+  outline: 2px solid var(--ck-purple);
+  outline-offset: 2px;
+}
+
+/* Delivery: the method's name, and under it the two things being weighed. */
+.ux-delivery-list {
+  display: grid;
+  gap: 8px;
+}
+.ux-delivery-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 58px;
+  padding: 10px 14px;
+  cursor: pointer;
+}
+.ux-delivery-card input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.ux-delivery-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.ux-delivery-copy strong {
+  color: var(--jw-ink);
+  font-size: 14px;
+  font-weight: 700;
+}
+.ux-delivery-copy small {
+  color: var(--jw-ink-soft);
+  font-size: 12.5px;
+}
+
+/* Wrapping: the offer, its one line, its price, and the switch - a real checkbox underneath. */
+.ux-gift-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 66px;
+  padding: 12px 14px;
+  cursor: pointer;
+}
+.ux-gift-card .ux-wrap-icon {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  color: var(--ck-purple);
+  background: #efe9fb;
+}
+.ux-gift-card .ux-wrap-icon svg {
+  width: 18px;
+  height: 18px;
+}
+.ux-gift-copy {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.ux-gift-copy strong {
+  color: var(--jw-ink);
+  font-size: 14px;
+  font-weight: 700;
+}
+.ux-gift-copy small {
+  color: var(--jw-ink-soft);
+  font-size: 12.5px;
+}
+.ux-gift-end {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 12px;
+}
+.ux-gift-end > b {
+  color: var(--jw-ink);
+  font-size: 14px;
+  font-weight: 700;
+}
+.ux-gift-card input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.ux-gift-card .ux-switch {
+  position: relative;
+  flex: none;
+  width: 42px;
+  height: 24px;
+  border-radius: 999px;
+  background: #e4dfea;
+  transition: background 0.16s ease;
+}
+.ux-gift-card .ux-switch::after {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px #2a1d5233;
+  transition: transform 0.16s ease;
+  content: "";
+}
+.ux-gift-card input:checked ~ .ux-switch {
+  background: var(--ck-purple);
+}
+.ux-gift-card input:checked ~ .ux-switch::after {
+  transform: translateX(18px);
+}
+
+/* ---------------------------------------------------------------- the order card */
+.ux-summary-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.ux-summary-head h2 {
+  margin: 0;
+  color: var(--jw-ink);
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1.3;
+}
+.ux-summary-toggle {
+  display: none;
+}
+/* The book first and largest: the cover at a size a cover can be read at, then whose it is. */
+.ux-product {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+.ux-product .storybook-thumbnail,
+.ux-product .storybook-thumbnail .storybook-volume {
+  --book-width: 108px;
+  width: 108px;
+}
+.ux-product-copy {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding-top: 4px;
+}
+.ux-product-copy > strong {
+  color: var(--jw-ink);
+  font-family: var(--font-display);
+  font-feature-settings: var(--display-caps);
+  font-size: 17px;
+  font-weight: 800;
+  line-height: 1.25;
+}
+.ux-product-copy > span {
+  color: var(--jw-ink-soft);
+  font-size: 13px;
+}
+.ux-product-copy > small {
+  color: var(--jw-ink-soft);
+  font-size: 12px;
+}
+.ux-qty {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 8px;
+  color: var(--jw-ink-soft);
+  font-size: 12.5px;
+}
+/* The stepper, on paper (its own rules were written for the dark rail and for another parent). */
+.journey-checkout .ux-copies-stepper {
+  border-color: rgba(41, 35, 58, 0.16);
+  background: #fffdf8;
+}
+.journey-checkout .ux-copies-stepper button,
+.journey-checkout .ux-copies-stepper b {
+  color: var(--jw-ink);
+}
+.journey-checkout .ux-copies-stepper button:disabled {
+  color: #b9b2c6;
+}
+
+/* The lines that make the price, in one grey, and the total in ink. */
+.ux-lines {
+  display: flex;
+  flex-direction: column;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--jw-line);
+}
+.ux-line {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0;
+  color: var(--jw-ink-soft);
+  font-size: 13.5px;
+}
+.ux-line > strong {
+  color: var(--jw-ink);
+  font-weight: 700;
+}
+.ux-line > em {
+  color: var(--jw-ink-soft);
+  font-size: 12.5px;
+  font-style: normal;
+}
+/* The code: a line of text until it is wanted. */
+.journey-checkout .ux-promo-panel {
+  margin-top: 8px;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+/* Specific enough to undo the panel's own button chrome, which was drawn for "apply". */
+.journey-checkout .ux-order-summary .ux-promo-panel .ux-promo-link {
+  min-height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  cursor: pointer;
+  color: var(--jw-ink-soft);
+  background: none;
+  box-shadow: none;
+  font: inherit;
+  font-size: 13px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.journey-checkout .ux-order-summary .ux-promo-panel .ux-promo-link:hover {
+  color: var(--jw-ink);
+}
+.journey-checkout .ux-promo-panel .field > span {
+  color: var(--jw-ink-soft);
+}
+.journey-checkout .ux-promo-panel input {
+  border-color: #e2dbcf;
+  color: var(--jw-ink);
+  background: #fff;
+}
+.journey-checkout .ux-promo-panel button {
+  color: var(--jw-ink);
+}
+
+/* The answer, then the action, then one quiet line under it. */
+.ux-summary-foot {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--jw-line);
+}
+.ux-total {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 12px;
+  color: var(--jw-ink);
+}
+.ux-total > span {
+  font-size: 14px;
+  font-weight: 700;
+}
+.ux-total > strong {
+  font-family: var(--font-display);
+  font-feature-settings: var(--display-caps);
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+.ux-summary-foot .checkout-pay {
+  width: 100%;
+  min-height: 56px;
+  margin: 0;
+  font-size: 15.5px;
+}
+.ux-secure {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 10px 0 0;
+  color: var(--jw-ink-soft);
+  font-size: 12px;
+}
+/* The one thing on the page that may be green, because it is not a colour but a fact: nothing to pay. */
+.journey-checkout .ux-zero-total {
+  border-color: #bfe3cf;
+  background: #eaf7ef;
+}
+.journey-checkout .ux-zero-total strong {
+  color: #1f5a3a;
+}
+.journey-checkout .ux-zero-total p {
+  color: #2f6b4a;
+}
+
+/* ---------------------------------------------------------------- desktop: beside each other */
+@media (min-width: 1024px) and (min-height: 768px) {
+  .journey-checkout {
+    --jw-col: 1040px;
+  }
+  .journey-checkout .ux-checkout-stage {
+    grid-template-columns: 1fr minmax(0, 600px) minmax(340px, 400px) 1fr;
+    grid-template-areas:
+      ". form summary ."
+      ". error error ."
+      ". bar bar .";
+    column-gap: 40px;
+    padding-top: 28px;
+  }
+  .journey-checkout .ux-checkout-stage > .checkout-form {
+    grid-area: form;
+    align-self: start;
+    width: auto;
+    margin: 0;
+    padding: 0;
+    border: 0;
+  }
+  /*
+    The card stays in view while the questions scroll: what it comes to is never off the glass,
+    and neither is the button. Card chrome here and only here - on paper, one card is a card;
+    two would be a dashboard.
+  */
+  .journey-checkout .ux-checkout-stage > .ux-order-summary {
+    position: sticky;
+    top: 20px;
+    grid-area: summary;
+    align-self: start;
+    width: auto;
+    padding: 20px;
+    border: 1px solid var(--jw-line);
+    border-radius: 18px;
+    background: var(--ck-card);
+    box-shadow: 0 12px 32px #2a1d520f;
+  }
+  /* The phone's till is not needed: the card carries the total and the button. */
+  .journey-checkout .ux-checkout-stage > .ux-checkout-bar {
+    display: none;
+  }
+  .ux-beki-guide > img {
+    height: 84px;
+  }
+  .ux-block-title {
+    font-size: 17px;
+  }
+  /* A digital book has nothing to send, so there is no left column: the card, alone, centred. */
+  .journey-checkout .ux-checkout-stage.is-digital {
+    grid-template-columns: 1fr minmax(0, 440px) 1fr;
+    grid-template-areas:
+      ". form ."
+      ". summary ."
+      ". error ."
+      ". bar .";
+  }
+  .journey-checkout .ux-checkout-stage.is-digital > .ux-order-summary {
+    position: static;
+  }
+}
+
+/* ---------------------------------------------------------------- everything smaller: one column */
+@media (max-width: 1023px), (max-height: 767px) {
+  /*
+    The card first, folded: the book and the question are the first screen, the arithmetic is a
+    tap away, and the till at the foot of the window carries the total and the button.
+  */
+  .journey-checkout .ux-checkout-stage > .ux-order-summary {
+    padding: 14px 16px;
+    border: 1px solid var(--jw-line);
+    border-radius: 16px;
+    background: var(--ck-card);
+  }
+  .ux-summary-head {
+    margin-bottom: 10px;
+  }
+  .ux-summary-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    min-height: 32px;
+    padding: 0 4px;
+    border: 0;
+    cursor: pointer;
+    color: var(--jw-ink-soft);
+    background: none;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .ux-summary-toggle svg {
+    transition: transform 0.16s ease;
+  }
+  .ux-order-summary.is-open .ux-summary-toggle svg {
+    transform: rotate(180deg);
+  }
+  .ux-order-summary:not(.is-open) .ux-summary-details {
+    display: none;
+  }
+  .ux-summary-foot {
+    display: none;
+  }
+  .ux-product {
+    gap: 12px;
+  }
+  .ux-product .storybook-thumbnail,
+  .ux-product .storybook-thumbnail .storybook-volume {
+    --book-width: 84px;
+    width: 84px;
+  }
+  .ux-product-copy > strong {
+    font-size: 15px;
+  }
+  .ux-beki-guide {
+    margin: 4px 0 16px;
+  }
+  .ux-beki-guide > img {
+    height: 64px;
+  }
+  .ux-beki-bubble {
+    font-size: 13.5px;
+  }
+  .ux-block {
+    margin-top: 20px;
+  }
+}

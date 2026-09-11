@@ -26,5 +26,8 @@
 /* The child's world, rebuilt to the standalone dashboard handoff. After story-map.css, which
    still owns the older `.world-screen` layout that other routes have not left behind. */
 @import "./world-journey.css";
+/* The checkout as one card and one conversation. After everything that ever styled the order
+   summary, because it restates what it overrides rather than fighting it. */
+@import "./checkout.css";
 @import "./extensions.css";
 @import "./admin-console.css";

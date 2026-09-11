@@ -324,70 +324,101 @@ export const journey = {
   },
 
   checkout: {
-    /* The package a parent is buying, named in the language the rest of the page is in.
-       These two lines were the last English left on the order summary. */
-    stepAddress: "სად მივიტანოთ",
+    /*
+      The checkout speaks the way a parent would to a friend who is sending them something:
+      a question where there is a question, the answer's shape where there is an answer, and no
+      word from the order system. Rewritten together so the screen has one voice.
+    */
+    stepAddress: "სად მოვიდეს შენი წიგნი?",
     copiesFewer: "ერთით ნაკლები",
     copiesMore: "ერთით მეტი",
     giftWrap: "სასაჩუქრე შეფუთვა",
+    giftWrapNote: "ლამაზად შეფუთული, საჩუქრად მზად",
+    optional: "სურვილისამებრ",
     promoLabel: "პრომოკოდი გაქვს?",
-    promoRemove: "პრომოკოდის გაუქმება",
+    promoRemove: "კოდის მოხსნა",
     promoApplied: "პრომოკოდი გამოყენებულია",
-    promoInvalid: "ეს პრომოკოდი არასწორია ან ვადა გაუვიდა.",
-    packageDigital: "ციფრული",
-    packagePrint: "ბეჭდური + ციფრული",
+    promoInvalid: "ეს კოდი არ მუშაობს ან ვადა გაუვიდა.",
+    packageDigital: "ციფრული ვერსია",
+    packagePrint: "ბეჭდური წიგნი + ციფრული ვერსია",
     printTitle: "ბეჭდური ვერსიის შეკვეთა",
     printLead: "მიიღე უკვე შექმნილი წიგნი ბეჭდურად",
-    title: "დაასრულე შეკვეთა",
+    title: "შეკვეთის დასრულება",
     secure: "უსაფრთხო გადახდა",
-    zeroTotal: "გადასახდელი თანხა განულებულია",
-    zeroTotalNote: "ბარათის მონაცემები აღარ არის საჭირო.",
-    recipient: "მიმღები",
-    pickLocation: "აირჩიე ლოკაცია რუკაზე",
-    pickLocationTitle: "სად მივიტანოთ?",
-    pickLocationHint: "მოძებნე ქუჩა და აირჩიე ჩამონათვალიდან.",
+    /* Under the button: where the card details go, which is not this page. */
+    secureNote: "უსაფრთხო გადახდა ბანკის გვერდზე",
+    zeroTotal: "გადასახდელი არაფერია",
+    zeroTotalNote: "ბარათი არ დაგჭირდება - შეკვეთა პირდაპირ გააქტიურდება.",
+    recipient: "მიმღების სახელი",
+    pickLocation: "აირჩიე რუკაზე",
+    pickLocationTitle: "სად მოვიდეს წიგნი?",
+    pickLocationHint: "მოძებნე ქუჩა და აირჩიე სიიდან.",
     pickLocationConfirm: "ამ მისამართის დადასტურება",
-    pickLocationUnavailable: "რუკა ამჟამად მიუწვდომელია - ჩაწერე მისამართი ხელით.",
-    addressNotes: "დამატებით",
-    /* One message per field, said beside the field, because "fill in the address" above a form
-       with three empty boxes does not say which of them is the problem. */
-    requiredRecipient: "ჩაწერე მიმღების სახელი.",
+    pickLocationUnavailable: "რუკა ახლა არ იტვირთება - ჩაწერე მისამართი ხელით.",
+    /* The half no map knows, asked as the question it is. */
+    addressNotes: "როგორ მოგნახოს კურიერმა?",
+    /* One message per field, said beside the field. */
+    requiredRecipient: "ჩაწერე, ვინ მიიღებს წიგნს.",
     requiredPhone: "ჩაწერე ტელეფონის ნომერი.",
-    invalidPhone: "ნომერი 9 ციფრისგან უნდა შედგებოდეს, მაგალითად 599 12 34 56.",
+    invalidPhone: "ნომერი 9 ციფრია, მაგალითად 599 12 34 56.",
     requiredAddress: "ჩაწერე მისამართი - ქალაქი, ქუჩა და შენობა.",
     fixFields: "შეავსე მონიშნული ველები.",
-    addressNotesPlaceholder: "სადარბაზო, სართული, ბინა, კოდი, ორიენტირი",
-    addressPlaceholder: "ქალაქი, ქუჩა, შენობა და ბინა",
-    shippingAddress: "მიმღების მისამართი",
-    addNewAddress: "ახალი მისამართის დამატება",
-    backToSavedAddresses: "შენახულ მისამართებზე დაბრუნება",
-    /* Correcting a saved address in place - the list could be chosen from and added to, not changed. */
-    editAddress: "რედაქტირება",
-    editingAddress: "მისამართის რედაქტირება",
-    saveAddress: "მისამართის შენახვა",
+    addressNotesPlaceholder: "სადარბაზო, სართული, ბინა, კარის კოდი",
+    addressPlaceholder: "ქალაქი, ქუჩა, შენობა, ბინა",
+    shippingAddress: "მისამართი",
+    addNewAddress: "სხვა მისამართზე",
+    backToSavedAddresses: "უკან, შენახულ მისამართებზე",
+    /* Correcting a saved address in place. */
+    editAddress: "შეცვლა",
+    editingAddress: "მისამართის შეცვლა",
+    saveAddress: "შენახვა",
     cancelEdit: "გაუქმება",
-    saveAddressFailed: "მისამართი ვერ შეინახა. სცადე ხელახლა.",
-    /* Beki's one line on the checkout: a tip about the field that decides whether the courier
-       finds the door, not a greeting. */
-    guideTip: "სადარბაზო, სართული და ბინა დამატებით ველში ჩაწერე - კურიერი უფრო სწრაფად მოგნახავს.",
+    saveAddressFailed: "მისამართი ვერ შეინახა. სცადე კიდევ ერთხელ.",
+    /*
+      Beki's three lines, one at a time: what is still needed, that the address is good, that
+      the order can go. Short, and never a second sentence.
+    */
+    beki: {
+      whereTo: "თითქმის მზადაა! მითხარი, სად მოვიდეს წიგნი.",
+      addressSet: "შესანიშნავია! წიგნი ამ მისამართზე მოვა.",
+      ready: "ყველაფერი მზადაა! დავასრულოთ შეკვეთა.",
+    },
     activateOrder: "შეკვეთის გააქტიურება",
-    /* The photo is uploaded and the order created behind this button; it is seconds, not milliseconds. */
-    placingOrder: "შეკვეთა მუშავდება…",
+    /* The photo is uploaded and the order created behind this button; it is seconds. */
+    placingOrder: "შეკვეთა ფორმდება…",
     pay: (amount: string) => `გადახდა · ${amount} ₾`,
     summaryAlt: (hero: string) => "შენი შეკვეთა",
+    summaryTitle: "შენი შეკვეთა",
+    showDetails: "დეტალები",
+    hideDetails: "დამალვა",
+    /* Under the title: whose story it is and how long. The name is not declined, so it never
+       comes out wrong. */
+    productLine: (hero: string, pages?: number) =>
+      [hero ? `მთავარი გმირი - ${hero}` : "", pages ? `${pages} გვერდი` : ""]
+        .filter(Boolean)
+        .join(" · "),
+    quantity: "რაოდენობა",
+    lineBook: "წიგნი",
+    lineBooks: (count: number) => (count > 1 ? `წიგნი × ${count}` : "წიგნი"),
     alreadyOwnedDigital: "უკვე შეძენილი ციფრული ",
     deliveryLine: "მიწოდება საქართველოში ",
     deliveryHeading: "მიწოდება",
-    /* Named by how long it takes, because that is what the parent is choosing between; the
-       price is on the same line and needs no second mention. */
-    deliveryDays: (days: number) => `${days} სამუშაო დღეში`,
-    deliveryDaysRange: (min: number, max: number) => `${min}-${max} სამუშაო დღეში`,
+    deliveryMethod: "მიწოდების მეთოდი",
+    /* Named by what they are; the wait and the price sit under the name. */
+    deliveryName: {
+      TbilisiExpress: "სწრაფი მიწოდება",
+      TbilisiStandard: "სტანდარტული მიწოდება",
+      Regional: "მიწოდება რეგიონში",
+    },
+    deliveryDays: (days: number) => `${days} სამუშაო დღე`,
+    deliveryDaysRange: (min: number, max: number) => `${min}-${max} სამუშაო დღე`,
     deliveryFree: "უფასო",
-    /* Shown while the address is still empty, where the region price is the one being quoted. */
+    deliveryAfterAddress: "ჯერ მისამართი ჩაწერე - ვარიანტები მისამართზეა დამოკიდებული.",
+    deliveryPending: "მისამართის შემდეგ",
     deliveryRegional: "საქართველოს რეგიონები",
     deliveryTbilisi: "თბილისი",
-    discountLine: "შენი ფასდაკლება ",
-    total: "ჯამი ",
+    discountLine: "ფასდაკლება ",
+    total: "ჯამი",
     bookLanguage: "წიგნის ენა",
   },
 

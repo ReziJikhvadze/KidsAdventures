@@ -1,4 +1,15 @@
-import { ArrowRight, Check, Gift, MapPin, Minus, Pencil, Plus, Sparkles } from "lucide-react";
+import {
+  ArrowRight,
+  Check,
+  ChevronDown,
+  Gift,
+  Lock,
+  MapPin,
+  Minus,
+  Pencil,
+  Plus,
+  Sparkles,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { BekiLoader } from "@/components/adventrya/BekiLoader";
@@ -153,6 +164,10 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
   /** The saved row the open fields came from, when they came from one. Null for a new address. */
   const [editingAddressId, setEditingAddressId] = useState<string | null>(null);
   const [savingAddress, setSavingAddress] = useState(false);
+  /** The code field, once asked for: most parents have none, so it starts as a line of text. */
+  const [promoOpen, setPromoOpen] = useState(false);
+  /** The order card's arithmetic, on a phone, where it folds under the book until asked. */
+  const [summaryOpen, setSummaryOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   /** Whether this screen is still the one in front of the parent. See placeOrder. */
@@ -668,8 +683,61 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
     </div>
   ) : null;
 
+  /*
+    Beki says where the parent is, and nothing else.
+
+    No address that passes yet: ask for one. Fields open and passing - a new address being typed,
+    or one being corrected: say it will be used. The list folded on a chosen card, or a digital
+    book with nothing to send: say the order can go. One line at a time, chosen here from the same
+    checks the button uses, so he and the button never disagree about what is missing.
+  */
+  const addressComplete = !isPrint || Object.keys(shippingErrors()).length === 0;
+  const bekiLine = !isPrint
+    ? t.journey.checkout.beki.ready
+    : !addressComplete
+      ? t.journey.checkout.beki.whereTo
+      : addressOpen
+        ? t.journey.checkout.beki.addressSet
+        : t.journey.checkout.beki.ready;
+
+  /* What the book is, in one line under its title: whose story, and how long. */
+  const productLine = t.journey.checkout.productLine(heroName, draft.preview?.pageCount);
+
+  /*
+    One button, drawn twice: at the foot of the order card, which is where a desktop reads the
+    total, and on the bar a phone keeps at the bottom of the window. The stylesheet shows one or
+    the other, never both. It says what it is doing: behind it a portrait is uploaded and an order
+    is created, which is seconds on a phone connection, and aria-busy tells the reader too.
+  */
+  const payButton = (
+    <button
+      className="button button-primary checkout-pay"
+      type="button"
+      /* Not while the price on it is still the browser's guess - see the quote effect. */
+      disabled={busy || pricing}
+      aria-busy={busy || pricing}
+      onClick={() => void placeOrder()}
+    >
+      {busy ? (
+        <>
+          <BekiLoader size={16} />
+          {t.journey.checkout.placingOrder}
+        </>
+      ) : (
+        <>
+          {isFree
+            ? t.journey.checkout.activateOrder
+            : t.journey.checkout.pay(formatGelAmount(totalMinor))}
+          <ArrowRight aria-hidden="true" size={16} />
+        </>
+      )}
+    </button>
+  );
+
   return (
-    <section className="journey-stage checkout-stage ux-checkout-stage">
+    <section
+      className={`journey-stage checkout-stage ux-checkout-stage${isPrint ? "" : " is-digital"}`}
+    >
       {handoverOverlay}
 
       <LocationPickerDialog
@@ -684,21 +752,18 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
         <h1>{isPrint ? t.journey.checkout.printTitle : t.journey.checkout.title}</h1>
 
         {/*
-          Beki at the head of the form, saying one useful thing.
+          Beki, the guide - one short line, and it is always the next thing to do.
 
-          He stood in the empty room under the fields; the owner wanted him above them. Above
-          them a full figure would push the address under the fold on a laptop, which is the one
-          thing a checkout must not do to its form - so he is small, and he earns the row: the
-          line beside him points at the field most parents skip and most couriers need. One line,
-          no greeting, and (by the stylesheet) none of it on a phone, where the first screen is
-          the order. The picture is decoration; the sentence is not, and reads to everyone.
+          He used to say one fixed tip. Now he says where the parent is (see `bekiLine`): the
+          line is keyed so a change re-enters, and it is a live region so the change is heard as
+          well as seen. He never says more than one thing, and the picture is decoration.
         */}
-        {isPrint ? (
-          <div className="ux-checkout-guide">
-            <img src="/adventrya/beki-canonical.webp" alt="" width={480} height={685} />
-            <p>{t.journey.checkout.guideTip}</p>
-          </div>
-        ) : null}
+        <div className="ux-beki-guide">
+          <img src="/adventrya/beki-canonical.webp" alt="" width={480} height={685} />
+          <p className="ux-beki-bubble" key={bekiLine} aria-live="polite">
+            {bekiLine}
+          </p>
+        </div>
 
         {isFree ? (
           <div className="ux-zero-total">
@@ -710,229 +775,316 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
           </div>
         ) : null}
 
-        {/*
-          Three fields, where there were five.
-
-          City, street and a second line were separate boxes, which is how a postal form is
-          built and not how anybody says where they live. One line takes the whole address as
-          the parent would write it on a parcel; the courier reads it the same way either way.
-        */}
-        {/*
-          Two questions, named.
-
-          The form used to be an unlabelled run of fields followed by three boxes that looked
-          alike, so nothing on it said where one question ended and the next began. Where the
-          parcel goes and how it is made up are different questions and now say so.
-        */}
         {isPrint ? (
-          <p className="ux-checkout-step">
-            {editingAddressId ? t.journey.checkout.editingAddress : t.journey.checkout.stepAddress}
-          </p>
-        ) : null}
-        {/*
-          Folded, once there is something to fold.
-
-          A parent buying a second book meets their own address rather than an empty form, and a
-          parent who has just typed one does not keep looking at what they typed. Two ways out,
-          and they are different things: change this address, or post it somewhere else. The
-          second clears the fields, because "a different address" that opens pre-filled with the
-          last one is the same trap as not asking at all.
-        */}
-        {/*
-          The ones on file, as a list, with the default already chosen.
-
-          Radios rather than a dropdown: two or three addresses are worth seeing side by side -
-          which name, which street, which number - and a select box hides exactly that. The row
-          is the target, so the whole card is one tap.
-        */}
-        {isPrint && !addressOpen ? (
-          <div className="ux-address-list">
-            {savedAddresses.map((address) => {
-              const chosen = address.id === chosenAddressId;
-              return (
-                <div key={address.id} className={`ux-address-choice${chosen ? " is-on" : ""}`}>
-                  <label className="ux-address-pick">
-                    <input
-                      type="radio"
-                      name="savedAddress"
-                      checked={chosen}
-                      onChange={() => chooseAddress(address)}
-                    />
-                    <span className="ux-radio" aria-hidden="true" />
-                    <span>
-                      <strong>{address.addressLine1}</strong>
-                      <small>
-                        {address.recipientName} · {address.recipientPhone}
-                      </small>
-                    </span>
-                  </label>
-                  {/* Outside the label, so pressing it edits the row rather than picking it. */}
-                  <button
-                    className="ux-address-edit"
-                    type="button"
-                    aria-label={`${t.journey.checkout.editAddress}: ${address.addressLine1}`}
-                    onClick={() => startEditAddress(address)}
-                  >
-                    <Pencil aria-hidden="true" size={13} />
-                    {t.journey.checkout.editAddress}
+          <>
+            {/*
+              Where. The question is the heading, in the words a parent would use, and the saved
+              addresses answer it before any field does: radios rather than a dropdown, because
+              two or three addresses are worth seeing side by side, and the whole row is the
+              target. The pencil sits outside the label so pressing it edits rather than picks.
+            */}
+            <section className="ux-block" aria-labelledby="checkout-where">
+              <h2 className="ux-block-title" id="checkout-where">
+                {editingAddressId
+                  ? t.journey.checkout.editingAddress
+                  : t.journey.checkout.stepAddress}
+              </h2>
+              {!addressOpen ? (
+                <div className="ux-address-list">
+                  {savedAddresses.map((address) => {
+                    const chosen = address.id === chosenAddressId;
+                    return (
+                      <div
+                        key={address.id}
+                        className={`ux-address-choice${chosen ? " is-on" : ""}`}
+                      >
+                        <label className="ux-address-pick">
+                          <input
+                            type="radio"
+                            name="savedAddress"
+                            checked={chosen}
+                            onChange={() => chooseAddress(address)}
+                          />
+                          <span className="ux-radio" aria-hidden="true" />
+                          <span>
+                            <strong>{address.addressLine1}</strong>
+                            <small>
+                              {address.recipientName} · {address.recipientPhone}
+                            </small>
+                          </span>
+                        </label>
+                        <button
+                          className="ux-address-edit"
+                          type="button"
+                          aria-label={`${t.journey.checkout.editAddress}: ${address.addressLine1}`}
+                          onClick={() => startEditAddress(address)}
+                        >
+                          <Pencil aria-hidden="true" size={13} />
+                          {t.journey.checkout.editAddress}
+                        </button>
+                      </div>
+                    );
+                  })}
+                  <button className="ux-address-add" type="button" onClick={startNewAddress}>
+                    <Plus aria-hidden="true" size={15} />
+                    {t.journey.checkout.addNewAddress}
                   </button>
                 </div>
-              );
-            })}
-            <button className="ux-address-add" type="button" onClick={startNewAddress}>
-              <Plus aria-hidden="true" size={15} />
-              {t.journey.checkout.addNewAddress}
-            </button>
-          </div>
-        ) : null}
-        {isPrint && addressOpen ? (
-          <div className="ux-ship-fields">
-            <label className="field" htmlFor="checkout-ship-recipient">
-              <span>{t.journey.checkout.recipient}</span>
-              <input
-                id="checkout-ship-recipient"
-                name="recipientName"
-                autoComplete="name"
-                aria-invalid={fieldErrors.recipientName ? true : undefined}
-                aria-describedby={
-                  fieldErrors.recipientName ? "checkout-ship-recipient-error" : undefined
-                }
-                value={draft.shipping.recipientName}
-                onChange={(e) => updateShipping({ recipientName: e.target.value })}
-              />
-              {fieldErrors.recipientName ? (
-                <small id="checkout-ship-recipient-error" className="ux-field-error" role="alert">
-                  {fieldErrors.recipientName}
-                </small>
-              ) : null}
-            </label>
-            <label className="field" htmlFor="checkout-ship-phone">
-              <span>{t.common.labels.phone}</span>
-              {/*
-                The country code is already in the field, not something to remember to type.
+              ) : (
+                /*
+                  Three fields and a note, where a postal form would have six. One line takes
+                  the whole address as a parent would write it on a parcel; the field searches
+                  Google's own addresses as they type, and the map is the second way in for the
+                  one nobody can spell. The note is the half no map knows - which entrance,
+                  which floor, what to press - and is asked as the question it is.
+                */
+                <div className="ux-ship-fields">
+                  <label className="field" htmlFor="checkout-ship-recipient">
+                    <span>{t.journey.checkout.recipient}</span>
+                    <input
+                      id="checkout-ship-recipient"
+                      name="recipientName"
+                      autoComplete="name"
+                      aria-invalid={fieldErrors.recipientName ? true : undefined}
+                      aria-describedby={
+                        fieldErrors.recipientName ? "checkout-ship-recipient-error" : undefined
+                      }
+                      value={draft.shipping.recipientName}
+                      onChange={(e) => updateShipping({ recipientName: e.target.value })}
+                    />
+                    {fieldErrors.recipientName ? (
+                      <small
+                        id="checkout-ship-recipient-error"
+                        className="ux-field-error"
+                        role="alert"
+                      >
+                        {fieldErrors.recipientName}
+                      </small>
+                    ) : null}
+                  </label>
+                  <label className="field" htmlFor="checkout-ship-phone">
+                    <span>{t.common.labels.phone}</span>
+                    {/* +995 is in the box, not something to remember to type. */}
+                    <span className="ux-tel">
+                      <b aria-hidden="true">+995</b>
+                      <input
+                        id="checkout-ship-phone"
+                        name="recipientPhone"
+                        type="tel"
+                        inputMode="tel"
+                        autoComplete="tel"
+                        placeholder="5XX XX XX XX"
+                        maxLength={13}
+                        aria-invalid={fieldErrors.recipientPhone ? true : undefined}
+                        aria-describedby={
+                          fieldErrors.recipientPhone ? "checkout-ship-phone-error" : undefined
+                        }
+                        value={formatGeorgianPhone(draft.shipping.recipientPhone)}
+                        onChange={(e) => updateShipping({ recipientPhone: e.target.value })}
+                      />
+                    </span>
+                    {fieldErrors.recipientPhone ? (
+                      <small id="checkout-ship-phone-error" className="ux-field-error" role="alert">
+                        {fieldErrors.recipientPhone}
+                      </small>
+                    ) : null}
+                  </label>
+                  <AddressAutocompleteField
+                    id="checkout-ship-address"
+                    name="addressLine1"
+                    fieldClassName="field"
+                    className="field-wide"
+                    label={t.journey.checkout.shippingAddress}
+                    placeholder={t.journey.checkout.addressPlaceholder}
+                    value={draft.shipping.addressLine1}
+                    onChange={(addressLine1) => updateShipping({ addressLine1, city: "" })}
+                    onChoose={({ address, city }) =>
+                      updateShipping({ addressLine1: address, city })
+                    }
+                    onPickOnMap={() => setPickingLocation(true)}
+                    invalid={Boolean(fieldErrors.addressLine1)}
+                    describedBy={
+                      fieldErrors.addressLine1 ? "checkout-ship-address-error" : undefined
+                    }
+                  />
+                  {fieldErrors.addressLine1 ? (
+                    <small
+                      id="checkout-ship-address-error"
+                      className="ux-field-error field-wide"
+                      role="alert"
+                    >
+                      {fieldErrors.addressLine1}
+                    </small>
+                  ) : null}
+                  <label className="field field-wide" htmlFor="checkout-ship-notes">
+                    <span>{t.journey.checkout.addressNotes}</span>
+                    <textarea
+                      id="checkout-ship-notes"
+                      name="notes"
+                      rows={2}
+                      placeholder={t.journey.checkout.addressNotesPlaceholder}
+                      value={draft.shipping.notes ?? ""}
+                      onChange={(e) => updateShipping({ notes: e.target.value })}
+                    />
+                  </label>
+                  {/*
+                    Two ways to close the fields, and they are different things: an address being
+                    corrected is saved back to its row or the correction is dropped; a new one is
+                    simply left, back to the list. The pay button works over open fields either
+                    way - the order goes where the fields say.
+                  */}
+                  {editingAddressId ? (
+                    <div className="ux-address-actions field-wide">
+                      <button
+                        className="button button-primary ux-address-save"
+                        type="button"
+                        disabled={savingAddress}
+                        aria-busy={savingAddress}
+                        onClick={() => void saveEditedAddress()}
+                      >
+                        {savingAddress ? <BekiLoader size={14} /> : null}
+                        {t.journey.checkout.saveAddress}
+                      </button>
+                      <button
+                        className="ux-inline-link"
+                        type="button"
+                        onClick={backToSavedAddresses}
+                      >
+                        {t.journey.checkout.cancelEdit}
+                      </button>
+                    </div>
+                  ) : savedAddresses.length > 0 ? (
+                    <button
+                      className="ux-inline-link field-wide"
+                      type="button"
+                      onClick={backToSavedAddresses}
+                    >
+                      {t.journey.checkout.backToSavedAddresses}
+                    </button>
+                  ) : null}
+                </div>
+              )}
+            </section>
 
-                Every Georgian mobile starts +995 and no parent should be spelling it out - and
-                when they did, half of them typed it and half did not, which is how the same
-                house ended up on the saved list under two different numbers. The box now holds
-                the nine digits it wants, grouped as a Georgian number is read.
-              */}
-              <span className="ux-tel">
-                <b aria-hidden="true">+995</b>
-                <input
-                  id="checkout-ship-phone"
-                  name="recipientPhone"
-                  type="tel"
-                  inputMode="tel"
-                  autoComplete="tel"
-                  placeholder="5XX XX XX XX"
-                  maxLength={13}
-                  aria-invalid={fieldErrors.recipientPhone ? true : undefined}
-                  aria-describedby={
-                    fieldErrors.recipientPhone ? "checkout-ship-phone-error" : undefined
-                  }
-                  value={formatGeorgianPhone(draft.shipping.recipientPhone)}
-                  onChange={(e) => updateShipping({ recipientPhone: e.target.value })}
-                />
-              </span>
-              {fieldErrors.recipientPhone ? (
-                <small id="checkout-ship-phone-error" className="ux-field-error" role="alert">
-                  {fieldErrors.recipientPhone}
-                </small>
-              ) : null}
-            </label>
             {/*
-              The field searches, and the map is under it.
-
-              A Georgian street typed from memory is the easiest thing on this form to get wrong
-              and the most expensive: the parcel reaches a courier, and a courier with a misspelt
-              street rings or gives up. So the field itself now offers Google's own addresses as
-              the parent types, which is where nearly every address will come from, and the map
-              is the second way in for the one nobody can spell. Typing still works on its own —
-              both are shortcuts, never gates, and both are simply absent where there is no key.
+              How. Two cards when the address has a choice, one when it has none, and a plain
+              line until there is an address to price, because the options depend on it. Each
+              card is the name of the method and, under it, the two things being weighed - the
+              wait and the price - so the eye compares down one column of circles.
             */}
-            <AddressAutocompleteField
-              id="checkout-ship-address"
-              name="addressLine1"
-              fieldClassName="field"
-              className="field-wide"
-              label={t.journey.checkout.shippingAddress}
-              placeholder={t.journey.checkout.addressPlaceholder}
-              value={draft.shipping.addressLine1}
-              onChange={(addressLine1) => updateShipping({ addressLine1, city: "" })}
-              onChoose={({ address, city }) => updateShipping({ addressLine1: address, city })}
-              onPickOnMap={() => setPickingLocation(true)}
-              invalid={Boolean(fieldErrors.addressLine1)}
-              describedBy={fieldErrors.addressLine1 ? "checkout-ship-address-error" : undefined}
-            />
-            {fieldErrors.addressLine1 ? (
-              <small
-                id="checkout-ship-address-error"
-                className="ux-field-error field-wide"
-                role="alert"
-              >
-                {fieldErrors.addressLine1}
-              </small>
-            ) : null}
+            <section className="ux-block" aria-labelledby="checkout-how">
+              <h2 className="ux-block-title" id="checkout-how">
+                {t.journey.checkout.deliveryMethod}
+              </h2>
+              {addressStarted ? (
+                <div className="ux-delivery-list">
+                  {deliveryChoices.map((option) => {
+                    const window = DELIVERY[option];
+                    const chosen = option === deliveryOption;
+                    return (
+                      <label key={option} className={`ux-delivery-card${chosen ? " is-on" : ""}`}>
+                        <input
+                          type="radio"
+                          name="deliveryOption"
+                          value={option}
+                          checked={chosen}
+                          onChange={() =>
+                            onChange((prev) => ({
+                              ...prev,
+                              shipping: { ...prev.shipping, deliveryOption: option },
+                            }))
+                          }
+                        />
+                        <span className="ux-radio" aria-hidden="true" />
+                        <span className="ux-delivery-copy">
+                          <strong>{t.journey.checkout.deliveryName[option]}</strong>
+                          <small>
+                            {window.minDays === window.maxDays
+                              ? t.journey.checkout.deliveryDays(window.minDays)
+                              : t.journey.checkout.deliveryDaysRange(
+                                  window.minDays,
+                                  window.maxDays,
+                                )}
+                            {" · "}
+                            {window.priceMinor === 0
+                              ? t.journey.checkout.deliveryFree
+                              : formatGel(window.priceMinor)}
+                          </small>
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="ux-block-hint">{t.journey.checkout.deliveryAfterAddress}</p>
+              )}
+            </section>
 
             {/*
-              What no map knows and the parent always does.
-
-              A resolved address ends at the building. Which entrance, which floor, which flat and
-              what to press at the door is the half that decides whether the parcel arrives, and
-              until now there was nowhere on this form to say it — though the order has carried a
-              `notes` field the whole time.
+              The one optional thing, said to be optional. A switch drawn over a real checkbox,
+              so the keyboard, the reader and the label association keep working; the card
+              carries the offer's price whether or not it is on, and the summary carries the
+              charge only once it is.
             */}
-            <label className="field field-wide" htmlFor="checkout-ship-notes">
-              <span>{t.journey.checkout.addressNotes}</span>
-              <textarea
-                id="checkout-ship-notes"
-                name="notes"
-                rows={2}
-                placeholder={t.journey.checkout.addressNotesPlaceholder}
-                value={draft.shipping.notes ?? ""}
-                onChange={(e) => updateShipping({ notes: e.target.value })}
-              />
-            </label>
-            {/*
-              Two ways to close the fields, and they are different things: an address being
-              corrected is saved back to its row, or the correction is dropped; a new one is
-              simply left, back to the list. The pay button still works over open fields either
-              way - the order goes where the fields say.
-            */}
-            {editingAddressId ? (
-              <div className="ux-address-actions field-wide">
-                <button
-                  className="button button-primary ux-address-save"
-                  type="button"
-                  disabled={savingAddress}
-                  aria-busy={savingAddress}
-                  onClick={() => void saveEditedAddress()}
-                >
-                  {savingAddress ? <BekiLoader size={14} /> : null}
-                  {t.journey.checkout.saveAddress}
-                </button>
-                <button className="ux-inline-link" type="button" onClick={backToSavedAddresses}>
-                  {t.journey.checkout.cancelEdit}
-                </button>
-              </div>
-            ) : savedAddresses.length > 0 ? (
-              <button
-                className="ux-inline-link field-wide"
-                type="button"
-                onClick={backToSavedAddresses}
-              >
-                {t.journey.checkout.backToSavedAddresses}
-              </button>
-            ) : null}
-          </div>
+            <section className="ux-block" aria-label={t.journey.checkout.giftWrap}>
+              <label className={`ux-gift-card${draft.giftWrap ? " is-on" : ""}`}>
+                <span className="ux-wrap-icon" aria-hidden="true">
+                  <Gift />
+                </span>
+                <span className="ux-gift-copy">
+                  <strong>
+                    {t.journey.checkout.giftWrap}
+                    <span className="ux-optional">{t.journey.checkout.optional}</span>
+                  </strong>
+                  <small>{t.journey.checkout.giftWrapNote}</small>
+                </span>
+                <span className="ux-gift-end">
+                  <b>+{formatGel(PRICES.giftWrap)}</b>
+                  <input
+                    type="checkbox"
+                    name="giftWrap"
+                    checked={draft.giftWrap}
+                    onChange={(e) => onChange({ giftWrap: e.target.checked })}
+                  />
+                  <span className="ux-switch" aria-hidden="true" />
+                </span>
+              </label>
+            </section>
+          </>
         ) : null}
       </div>
 
-      <aside className="order-summary ux-order-summary">
-        <div className="ux-compact-product">
+      {/*
+        The order, as a card that stays in view.
+
+        What is being bought comes first and largest - the book, whose story it is, how long it
+        is - then the lines that make the price, then the price and the button that pays it. On a
+        desktop the card is sticky beside the questions; on a phone it sits first and folds its
+        arithmetic under the book so the first screen is the book and the question, and the bar
+        at the foot of the window carries the total and the button instead.
+      */}
+      <aside
+        className={`order-summary ux-order-summary${summaryOpen ? " is-open" : ""}`}
+        aria-labelledby="checkout-summary"
+      >
+        <div className="ux-summary-head">
+          <h2 id="checkout-summary">{t.journey.checkout.summaryTitle}</h2>
+          <button
+            type="button"
+            className="ux-summary-toggle"
+            aria-expanded={summaryOpen}
+            aria-controls="checkout-summary-details"
+            onClick={() => setSummaryOpen((open) => !open)}
+          >
+            {summaryOpen ? t.journey.checkout.hideDetails : t.journey.checkout.showDetails}
+            <ChevronDown aria-hidden="true" size={15} />
+          </button>
+        </div>
+
+        <div className="ux-product">
           <StorybookVolume
             variant="display"
-            className={`storybook storybook-thumbnail theme-${worldId}`}
+            className={`storybook storybook-thumbnail ux-product-book theme-${worldId}`}
             heroName={heroName}
             title={bookTitle}
             coverImageUrl={coverSrc}
@@ -940,51 +1092,19 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
             pages={thumbPages}
             lockedPageCount={0}
             isUnlocked={false}
-            // Not turnable: this is an 82px thumbnail in the order summary, not a
-            // reading surface. Making it interactive rendered page controls, a page
-            // rail and a gesture hint at full size on top of the title and price.
+            /* Not turnable: a thumbnail in an order card, not a reading surface. */
             interactive={false}
             initialIndex={0}
           />
-          <div>
-            <small>{packageLabel}</small>
+          <div className="ux-product-copy">
             <strong>{bookTitle}</strong>
-            <span>{formatGel(totalMinor)}</span>
-          </div>
-        </div>
-
-        <div className="summary-lines">
-          {/*
-            The two things about the parcel a parent may still change, on the two lines whose
-            prices they move.
-
-            They were a pair of cards at the foot of the form — a column away from the total they
-            change, and each repeating a line the breakdown already carried. Moving them across as
-            cards does not work: measured, the pair asks the rail for about 229px it has not got,
-            and the rail is the one column here that may not gain a scrollbar. So they are not
-            moved but dissolved — each becomes the row it was duplicating, carrying its control
-            where every other row carries its price, at a cost of 58px rather than 229.
-
-            The count on the row is the local one, never the quote's: the stepper is what the
-            parent just pressed, and the quote effect drops the old price the moment it moves, so
-            the figure beside it is always for the number shown.
-
-            The book on its own. Wrapping and delivery are both inside `subtotalMinor` — the server prices it as part
-            of the subtotal so a promo can reach it — so printing the subtotal here and the
-            wrapping and the courier again below made the lines add up to more than the total under them.
-          */}
-          {isPrint ? (
-            <span className="ux-summary-option">
-              <span>
-                <strong>{packageLabel}</strong>
-              </span>
-              <span className="ux-summary-option-end">
-                {/*
-                  Minus, the number, plus — the control every delivery app in the country has
-                  taught a Georgian parent to read, so it needs no label explaining what it does.
-                  The ends stop rather than wrap: at one there is nothing to take away, and five
-                  is as many copies as this checkout will take.
-                */}
+            {productLine ? <span>{productLine}</span> : null}
+            <small>{packageLabel}</small>
+            {isPrint ? (
+              <span className="ux-qty">
+                <span>{t.journey.checkout.quantity}</span>
+                {/* Minus, the number, plus - the control every delivery app has taught a parent
+                    to read. The ends stop rather than wrap. */}
                 <span className="ux-copies-stepper">
                   <button
                     type="button"
@@ -1004,233 +1124,147 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
                     <Plus aria-hidden="true" size={16} />
                   </button>
                 </span>
-                <strong>{formatGel(subtotalMinor - giftWrapMinor - deliveryMinor)}</strong>
               </span>
-            </span>
-          ) : (
-            <span>
-              {packageLabel}
-              <strong>{formatGel(subtotalMinor - giftWrapMinor - deliveryMinor)}</strong>
-            </span>
-          )}
-          {/*
-            Delivery, where the parent can see what it costs them to wait.
-
-            One line when there is nothing to decide - everywhere outside Tbilisi is one price
-            in one window - and two selectable ones when there is. The radio is on the left
-            because these are alternatives rather than extras: the eye reads down the column of
-            circles to compare them, which is not how the switch above works and should not look
-            like it.
-
-            Before an address says otherwise this is the regional price. That is the honest
-            direction to guess in: recognising Tbilisi drops the total, where guessing free and
-            correcting upwards would raise a figure the parent had already accepted.
-          */}
-          {isPrint && addressStarted && deliveryChoices.length > 1 ? (
-            <>
-              <p className="ux-delivery-label">{t.journey.checkout.deliveryHeading}</p>
-              {deliveryChoices.map((option) => {
-                const window = DELIVERY[option];
-                const chosen = option === deliveryOption;
-                return (
-                  <label key={option} className={`ux-delivery-option${chosen ? " is-on" : ""}`}>
-                    <input
-                      type="radio"
-                      name="deliveryOption"
-                      value={option}
-                      checked={chosen}
-                      onChange={() =>
-                        onChange((prev) => ({
-                          ...prev,
-                          shipping: { ...prev.shipping, deliveryOption: option },
-                        }))
-                      }
-                    />
-                    <span className="ux-radio" aria-hidden="true" />
-                    <span>{t.journey.checkout.deliveryDays(window.minDays)}</span>
-                    <strong>
-                      {window.priceMinor === 0
-                        ? t.journey.checkout.deliveryFree
-                        : formatGel(window.priceMinor)}
-                    </strong>
-                  </label>
-                );
-              })}
-            </>
-          ) : null}
-          {isPrint && addressStarted && deliveryChoices.length === 1 ? (
-            <span>
-              {t.journey.checkout.deliveryHeading} ·{" "}
-              {t.journey.checkout.deliveryDaysRange(
-                DELIVERY.Regional.minDays,
-                DELIVERY.Regional.maxDays,
-              )}
-              <strong>{formatGel(deliveryMinor)}</strong>
-            </span>
-          ) : null}
-          {/*
-            A switch, not a tick — but a real checkbox underneath it.
-
-            The control is drawn as the toggle the design asks for and stays an
-            `input[type=checkbox]` inside its label, so the keyboard, the screen reader and the
-            label association all keep working; only its painting changes.
-
-            The row is here whether or not wrapping is on, because it is now the offer as well
-            as the charge: unticked it reads `+5 ₾` and stays out of the total, ticked it is
-            the price the server itself returned, on the same line as every other price.
-          */}
-          {isPrint ? (
-            <label className={`ux-summary-option ux-gift-wrap${draft.giftWrap ? " is-on" : ""}`}>
-              <span>
-                {/* The one row on the card that is an offer rather than a fact, so it is the one
-                    drawn as a thing to press: a bordered card with the parcel's own icon. */}
-                <span className="ux-wrap-icon" aria-hidden="true">
-                  <Gift />
-                </span>
-                <strong>{t.journey.checkout.giftWrap}</strong>
-              </span>
-              <span className="ux-summary-option-end">
-                <input
-                  type="checkbox"
-                  name="giftWrap"
-                  checked={draft.giftWrap}
-                  onChange={(e) => onChange({ giftWrap: e.target.checked })}
-                />
-                <span className="ux-switch" aria-hidden="true" />
-                <strong>
-                  {giftWrapMinor > 0 ? formatGel(giftWrapMinor) : `+${formatGel(PRICES.giftWrap)}`}
-                </strong>
-              </span>
-            </label>
-          ) : null}
-          {discountMinor > 0 ? (
-            <span className="ux-discount-line">
-              {t.journey.checkout.discountLine}
-              {draft.promoCode} <strong>−{formatGel(discountMinor)}</strong>
-            </span>
-          ) : null}
+            ) : null}
+          </div>
         </div>
 
-        {/*
-          Back, as asked. It went when this screen was cut to one page, and a code on the draft
-          still discounted — but only if something else had already put it there, which left a
-          parent holding a code with nowhere to type it.
-        */}
-        <div className="ux-promo-panel">
-          <label className="field" htmlFor="checkout-promo">
-            <span>{t.journey.checkout.promoLabel}</span>
-            <div>
-              <input
-                id="checkout-promo"
-                name="promoCode"
-                value={promoInput}
-                disabled={promoState === "applied"}
-                onChange={(e) => {
-                  setPromoInput(e.target.value);
-                  if (promoState === "invalid") {
-                    setPromoState("idle");
-                    setPromoMessage(null);
-                  }
-                }}
-              />
-              {promoState === "applied" ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPromoInput("");
-                    onChange({ promoCode: "" });
-                    setPromoState("idle");
-                    setPromoMessage(null);
-                    /*
-                      The discount goes with the code, in the same tick.
+        <div className="ux-summary-details" id="checkout-summary-details">
+          {/*
+            The lines add up to the total under them. Wrapping and the courier are inside the
+            server's subtotal so a promo can reach them, so the book's own line is the subtotal
+            with both taken back out, and each of them is printed once.
+          */}
+          <div className="ux-lines">
+            <span className="ux-line">
+              <span>
+                {isPrint ? t.journey.checkout.lineBooks(copies) : t.journey.checkout.lineBook}
+              </span>
+              <strong>{formatGel(subtotalMinor - giftWrapMinor - deliveryMinor)}</strong>
+            </span>
+            {isPrint ? (
+              <span className="ux-line">
+                <span>{t.journey.checkout.deliveryHeading}</span>
+                {addressStarted ? (
+                  <strong>
+                    {deliveryMinor === 0
+                      ? t.journey.checkout.deliveryFree
+                      : formatGel(deliveryMinor)}
+                  </strong>
+                ) : (
+                  <em>{t.journey.checkout.deliveryPending}</em>
+                )}
+              </span>
+            ) : null}
+            {isPrint && draft.giftWrap ? (
+              <span className="ux-line">
+                <span>{t.journey.checkout.giftWrap}</span>
+                <strong>{formatGel(giftWrapMinor)}</strong>
+              </span>
+            ) : null}
+            {discountMinor > 0 ? (
+              <span className="ux-line ux-discount-line">
+                <span>
+                  {t.journey.checkout.discountLine}
+                  {draft.promoCode}
+                </span>
+                <strong>−{formatGel(discountMinor)}</strong>
+              </span>
+            ) : null}
+          </div>
 
-                      Clearing only the code left the discounted quote on screen until the
-                      re-quote came back — a window in which the button said one total and
-                      `createOrder`, sending no promo, would have charged the other. Dropping
-                      the quote falls the summary back to the undiscounted price, which is what
-                      is about to be charged.
-                    */
-                    setQuote(null);
-                  }}
-                >
-                  {t.journey.checkout.promoRemove}
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  disabled={busy || promoState === "applying" || !promoInput.trim()}
-                  onClick={() => void applyPromo()}
-                >
-                  {promoState === "applying" ? t.common.actions.checking : t.common.actions.apply}
-                </button>
-              )}
-            </div>
-          </label>
-          {promoState === "applied" ? (
-            <p className="valid">
-              <Check aria-hidden="true" /> {t.journey.checkout.promoApplied}
-            </p>
-          ) : null}
-          {promoState === "invalid" ? (
-            <p className="invalid" role="alert">
-              {promoMessage || t.journey.checkout.promoInvalid}
-            </p>
-          ) : null}
+          {/*
+            The code, behind a link until it is wanted. Most parents have none, and an empty
+            field with a button beside it asks everyone a question meant for a few; a line of
+            text asks it quietly. Once there is a code, or an answer about one, the field stays.
+          */}
+          <div className="ux-promo-panel">
+            {promoOpen || promoInput || promoState !== "idle" ? (
+              <label className="field" htmlFor="checkout-promo">
+                <span>{t.journey.checkout.promoLabel}</span>
+                <div>
+                  <input
+                    id="checkout-promo"
+                    name="promoCode"
+                    value={promoInput}
+                    disabled={promoState === "applied"}
+                    onChange={(e) => {
+                      setPromoInput(e.target.value);
+                      if (promoState === "invalid") {
+                        setPromoState("idle");
+                        setPromoMessage(null);
+                      }
+                    }}
+                  />
+                  {promoState === "applied" ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPromoInput("");
+                        onChange({ promoCode: "" });
+                        setPromoState("idle");
+                        setPromoMessage(null);
+                        /* The discount goes with the code, in the same tick - see the quote effect. */
+                        setQuote(null);
+                      }}
+                    >
+                      {t.journey.checkout.promoRemove}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={busy || promoState === "applying" || !promoInput.trim()}
+                      onClick={() => void applyPromo()}
+                    >
+                      {promoState === "applying"
+                        ? t.common.actions.checking
+                        : t.common.actions.apply}
+                    </button>
+                  )}
+                </div>
+              </label>
+            ) : (
+              <button type="button" className="ux-promo-link" onClick={() => setPromoOpen(true)}>
+                {t.journey.checkout.promoLabel}
+              </button>
+            )}
+            {promoState === "applied" ? (
+              <p className="valid">
+                <Check aria-hidden="true" /> {t.journey.checkout.promoApplied}
+              </p>
+            ) : null}
+            {promoState === "invalid" ? (
+              <p className="invalid" role="alert">
+                {promoMessage || t.journey.checkout.promoInvalid}
+              </p>
+            ) : null}
+          </div>
+        </div>
+
+        {/* The answer, then the action, then the one line of reassurance under it. */}
+        <div className="ux-summary-foot">
+          <p className="ux-total">
+            <span>{t.journey.checkout.total}</span>
+            <strong>{formatGel(totalMinor)}</strong>
+          </p>
+          {payButton}
+          <p className="ux-secure">
+            <Lock aria-hidden="true" size={13} />
+            {t.journey.checkout.secureNote}
+          </p>
         </div>
       </aside>
 
       {error ? <p className="ux-form-error">{error}</p> : null}
 
-      {/*
-        The button says what it is doing. Behind it a portrait is uploaded and an order is
-        created, which is seconds on a phone connection — and it used to keep its ordinary
-        label throughout, so the only sign anything had happened was that the press did
-        nothing. aria-busy so it is not only the sighted parent who is told.
-      */}
-      {/*
-        The answer and the action, on one line at the foot of the column.
-
-        They were the last two rows of a rail down the right-hand side: the total set in gold
-        at 30px, the button under it. With the rail gone the column has to end somewhere, and
-        it ends the way a till does - what it comes to, and the way to pay it, side by side and
-        in reach. Sticky, so a long address never scrolls the price out of sight.
-      */}
+      {/* The phone's till: the total and the button, kept at the foot of the window. */}
       <div className="ux-checkout-bar">
         <span className="ux-checkout-bar-total">
           <small>{t.journey.checkout.total}</small>
           <strong>{formatGel(totalMinor)}</strong>
         </span>
-        <button
-          className="button button-primary checkout-pay"
-          type="button"
-          /* Not while the price on it is still the browser's guess — see the quote effect. */
-          disabled={busy || pricing}
-          aria-busy={busy || pricing}
-          onClick={() => void placeOrder()}
-        >
-          {busy ? (
-            <>
-              <BekiLoader size={16} />
-              {t.journey.checkout.placingOrder}
-            </>
-          ) : (
-            <>
-              {isFree
-                ? t.journey.checkout.activateOrder
-                : t.journey.checkout.pay(formatGelAmount(totalMinor))}
-              <ArrowRight aria-hidden="true" size={16} />
-            </>
-          )}
-        </button>
+        {payButton}
       </div>
-      {/*
-        No way back from here.
-
-        The button under the pay button was a link to the preview, and it is the one thing on
-        this screen that is not the order: a parent one press from the bank was being offered
-        somewhere else to go. The browser's own back button still does it for anyone who wants
-        it, and losing the link is what lets the column fit a screen without a scrollbar.
-      */}
     </section>
   );
 }
