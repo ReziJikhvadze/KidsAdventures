@@ -1,6 +1,6 @@
 export const common = {
   brand: "Beki",
-  brandTagline: "stories that remember",
+  brandTagline: "ისტორია, რომელიც დაგამახსოვრდება",
   currencySymbol: "₾",
 
   states: {
