@@ -28,6 +28,37 @@ function isPublicIllustrationUrl(url: string): boolean {
 const objectUrlCache = new Map<string, string>();
 const inFlight = new Map<string, Promise<string>>();
 
+/*
+  A picture that could not be fetched is asked for again, a few times, a little later each time.
+
+  The failures worth this are the passing ones: the API restarting under a deploy answers with
+  nothing for a minute or two, and a network that dropped for a moment. One such minute used to
+  leave the shelf showing a world's stock art in place of the child's painted cover for the rest
+  of the visit, because nothing asked again until the page was reloaded. A picture that is
+  genuinely gone (a 404) is not asked for again: it will not appear by waiting.
+*/
+const RETRY_DELAYS_MS = [3000, 8000, 20000];
+
+function isPassing(error: unknown): boolean {
+  const status = (error as { status?: number } | null)?.status;
+  // A failed fetch throws a TypeError with no status at all: that is the network, or a server
+  // that is not there to answer. 5xx is a server that is there and cannot.
+  return status === undefined || status >= 500;
+}
+
+const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+async function fetchWithRetries(path: string): Promise<string> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await fetchIllustrationObjectUrl(path);
+    } catch (error) {
+      if (attempt >= RETRY_DELAYS_MS.length || !isPassing(error)) throw error;
+      await wait(RETRY_DELAYS_MS[attempt]);
+    }
+  }
+}
+
 function load(path: string): Promise<string> {
   const cached = objectUrlCache.get(path);
   if (cached) return Promise.resolve(cached);
@@ -35,7 +66,7 @@ function load(path: string): Promise<string> {
   const existing = inFlight.get(path);
   if (existing) return existing;
 
-  const request = fetchIllustrationObjectUrl(path)
+  const request = fetchWithRetries(path)
     .then((resolved) => {
       // Two callers can pass the cache check before either resolves. The loser's object URL
       // would otherwise leak, since only the cached one is ever handed out again.

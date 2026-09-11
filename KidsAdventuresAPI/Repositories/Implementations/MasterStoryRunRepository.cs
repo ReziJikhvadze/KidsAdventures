@@ -251,13 +251,20 @@ public sealed class MasterStoryRunRepository(ISqlConnectionFactory connectionFac
           holds the whole book, and this is a list. Guarded by ISJSON because JSON_VALUE does not
           merely return null on text it cannot parse - it raises, and one malformed row would
           take the whole of a parent's shelf with it.
+
+          Two spellings, because the column holds two shapes. A written book is stored camel-cased
+          ("title"); a fast preview's receipt is the FastPreviewRevision record serialised as it
+          is, Pascal-cased ("Title"). SQL Server's JSON paths are case-sensitive, so reading only
+          the first left every preview on the shelf under its world's stock title rather than the
+          one painted on its cover.
         */
         const string sql = """
                            SELECT TOP (@Limit)
                                Id, CharacterId, Status, ProgressMessage, ErrorMessage, ChildName, Theme,
                                CoverImageUrl,
                                CASE WHEN ISJSON(ContentJson) = 1
-                                    THEN JSON_VALUE(ContentJson, '$.title') END AS Title,
+                                    THEN COALESCE(JSON_VALUE(ContentJson, '$.title'),
+                                                  JSON_VALUE(ContentJson, '$.Title')) END AS Title,
                                CreatedAt, ExpiresAt
                            FROM dbo.MasterStoryRuns
                            WHERE UserId = @UserId
