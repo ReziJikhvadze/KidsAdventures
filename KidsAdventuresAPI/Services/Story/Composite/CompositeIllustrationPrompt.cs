@@ -260,6 +260,9 @@ public sealed record CompositeSpreadPromptInput
     /// <summary>One named character group per attached canonical source image, in attachment order.</summary>
     public IReadOnlyList<IReadOnlyList<string>> ContinuityReferenceElements { get; init; } = [];
 
+    /// <summary>True only when magnified crops of the approved Beki master are actually attached.</summary>
+    public bool BekiHandsReferenceAttached { get; init; }
+
     /// <summary>
     /// The book's four identity attributes, rendered into the CHILD IDENTITY LOCK block.
     ///
@@ -564,7 +567,7 @@ public static class CompositeIllustrationPrompt
             Premium warm stylized 3D children's-book illustration; expressive but natural; soft tactile materials; cinematic depth; welcoming, age-appropriate emotional tone. Match the supplied approved theme reference while creating a new scene.
 
             HARD CONSTRAINTS
-            {(input.InsertBekiInGeneration ? SpreadConstraints.Replace("Do not generate Beki.", "Include exactly one Beki from the final reference image.").Replace("Do not generate any substitute guide, floating mascot, leaf spirit, lamb, sheep, or Beki-like character.", "No substitute guide or additional mascot.") : SpreadConstraints)}{ForbiddenElementLines(input.ForbiddenElements)}
+            {(input.InsertBekiInGeneration ? SpreadConstraints.Replace("Do not generate Beki.", "Include exactly one Beki from the labelled approved Beki master reference.").Replace("Do not generate any substitute guide, floating mascot, leaf spirit, lamb, sheep, or Beki-like character.", "No substitute guide or additional mascot.") : SpreadConstraints)}{ForbiddenElementLines(input.ForbiddenElements)}
             {(input.InsertBekiInGeneration ? BekiIdentity.GenerationFinalCheck : string.Empty)}
             """;
     }
@@ -1085,6 +1088,12 @@ public static class CompositeIllustrationPrompt
         }
 
         lines.Add($"Image {number++} - {ChildReferenceBody(input.ChildAge, input.AnchorAttached)}");
+        if (input.InsertBekiInGeneration)
+        {
+            lines.Add($"Image {number++} - {BekiIdentity.ReferenceLabel}. This is the original approved source, supplied independently on EVERY spread. Use only this source for Beki's anatomy, face, eyes, mouth and four-digit hands. Ignore every Beki visible in the other images, regardless of spread number.");
+            if (input.BekiHandsReferenceAttached)
+                lines.Add($"Image {number++} - {BekiIdentity.HandsReferenceLabel}. These are the two hands of the SAME Beki, magnified without redesign. Match the violet palm shape, short rounded lobes, thumb placement and natural occlusion. Do not add fingers to reveal an occluded digit. These crops are anatomy references only, not extra characters or floating hands to put in the scene.");
+        }
         lines.Add($"Image {number++} - {ThemeReferenceBody(input.Theme)}");
 
         var characterGroups = input.ContinuityReferenceElements.Count > 0
@@ -1092,9 +1101,6 @@ public static class CompositeIllustrationPrompt
             : input.ContinuityElementNames.Count > 0 ? [input.ContinuityElementNames] : [];
         foreach (var names in characterGroups)
             lines.Add($"Image {number++} - {ContinuityBody(names)}");
-
-        if (input.InsertBekiInGeneration)
-            lines.Add($"Image {number} (FINAL IMAGE) - {BekiIdentity.ReferenceLabel}. Use only this image for Beki's anatomy, face, eyes, mouth and four-digit hands; ignore Beki in earlier images.");
 
         return string.Join("\n", lines);
     }

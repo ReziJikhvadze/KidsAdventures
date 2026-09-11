@@ -3158,6 +3158,10 @@ public sealed class CompositeBookPipeline(
 
         var anchored = anchor is { Length: > 0 };
 
+        var bekiReference = _options.InsertBekiInGeneration
+            ? BekiGeneratedArtwork.Reference(_options.BekiReferenceAssetPath) : null;
+        var bekiHands = bekiReference is not null ? BekiGeneratedArtwork.HandDetails(bekiReference) : null;
+
         var prompt = CompositeIllustrationPrompt.ForSpread(new CompositeSpreadPromptInput
         {
             Page = page.Page,
@@ -3173,21 +3177,21 @@ public sealed class CompositeBookPipeline(
             AnchorAttached = anchored,
             InsertBekiInGeneration = _options.InsertBekiInGeneration,
             BekiAction = page.BekiAction,
+            BekiHandsReferenceAttached = bekiHands is not null,
         });
 
         if (_options.InsertBekiInGeneration)
         {
-            var bekiReference = BekiGeneratedArtwork.Reference(_options.BekiReferenceAssetPath);
             var (raw, elapsed, image) = await GenerateBaseImageAsync(
                 context, page.Page, prompt,
-                References(childPhoto, childPhotoContentType, theme, anchor, references, bekiReference),
+                References(childPhoto, childPhotoContentType, theme, anchor, references, bekiReference, bekiHands),
                 cancellationToken);
             var png = NormalizeToSpread(context, page.Page, raw);
             continuity.Remember(page.Page, elements, png);
             return new CompositeSpreadResult
             {
                 Page = page.Page, BasePng = png, CompositePng = png,
-                Manifest = BekiGeneratedArtwork.Receipt(png, bekiReference, $"spread-{page.Page:00}.png"),
+                Manifest = BekiGeneratedArtwork.Receipt(png, bekiReference!, $"spread-{page.Page:00}.png"),
                 Prompt = prompt, PoseId = BekiGeneratedArtwork.PoseId, TextSide = textSide,
                 Verdict = "REFERENCE_GENERATED (no compositing or model review)", BaseAttempts = 1,
                 Attempts = [new CompositeAttempt(elapsed, 0, ReviewSkippedStatus, true)],
@@ -3199,7 +3203,9 @@ public sealed class CompositeBookPipeline(
                     qa_prompt_version = CompositeMinimalQa.Version, recommended_action = "none",
                     image_prompt_version = BekiGeneratedArtwork.Version,
                     generation_mode = BekiGeneratedArtwork.Version,
-                    reference_sha256 = BekiCompositeEngine.Sha256Hex(bekiReference),
+                    reference_sha256 = BekiCompositeEngine.Sha256Hex(bekiReference!),
+                    hand_reference_sha256 = bekiHands is null ? null : BekiCompositeEngine.Sha256Hex(bekiHands),
+                    beki_reference_source = "approved-master",
                     exact_png_composite = false, review_attempts = 0,
                 }),
             };
@@ -4676,9 +4682,9 @@ public sealed class CompositeBookPipeline(
 
     /// <summary>
     /// References in exactly the prompt's numbered order: fixed child anchor when available,
-    /// original child image, approved world, then one first-appearance source per character group.
-    /// Beki is excluded for exact compositing; the experimental native mode attaches her approved
-    /// reference last. The maximum is six images for compositing, seven for native Beki.
+    /// original child image, approved Beki master and hand details (native mode only), approved
+    /// world, then one first-appearance source per character group. Generated Beki appearances
+    /// must never take precedence over the source master. Exact compositing attaches no Beki.
     /// </summary>
     private StoryImageReference? References(
         byte[] childPhoto,
@@ -4686,7 +4692,8 @@ public sealed class CompositeBookPipeline(
         CompositeThemeReference theme,
         byte[]? childAnchor,
         IReadOnlyList<CompositeCharacterReference>? continuityImages,
-        byte[]? bekiReference = null)
+        byte[]? bekiReference = null,
+        byte[]? bekiHandsReference = null)
     {
         var references = new List<(byte[] Bytes, string ContentType, string Label)>();
 
@@ -4702,6 +4709,12 @@ public sealed class CompositeBookPipeline(
         // And the photograph directly behind it, never dropped: the anchor is one stylization, and
         // a stylization is answerable to the child it was made from.
         references.Add((childPhoto, childPhotoContentType, "Child identity reference"));
+        if (bekiReference is { Length: > 0 })
+        {
+            references.Add((bekiReference, "image/png", BekiIdentity.ReferenceLabel));
+            if (bekiHandsReference is { Length: > 0 })
+                references.Add((bekiHandsReference, "image/png", BekiIdentity.HandsReferenceLabel));
+        }
         references.Add((ThemeReferenceForModel(theme), "image/png",
             $"Approved {theme.OfficialName} world reference"));
 
@@ -4709,9 +4722,6 @@ public sealed class CompositeBookPipeline(
         {
             references.Add((character.Image, "image/png", "Continuity reference"));
         }
-
-        if (bekiReference is { Length: > 0 })
-            references.Add((bekiReference, "image/png", BekiIdentity.ReferenceLabel));
 
         return BekiImageReferences.ToStoryImageReference(references);
     }

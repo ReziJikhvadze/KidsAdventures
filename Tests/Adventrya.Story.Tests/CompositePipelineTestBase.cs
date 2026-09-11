@@ -567,6 +567,8 @@ public abstract class CompositePipelineTestBase
         /// <summary>The child's photograph of each call, which is attached on every one of them.</summary>
         public List<byte[]?> PhotoImages { get; } = [];
         public List<byte[]?> BekiReferences { get; } = [];
+        public List<byte[]?> BekiHandReferences { get; } = [];
+        public List<IReadOnlyList<string>> ReferenceLabels { get; } = [];
 
         /// <summary>What each QA call was asked, and what it was shown.</summary>
         public List<string> ReviewPrompts { get; } = [];
@@ -667,6 +669,8 @@ public abstract class CompositePipelineTestBase
 
             var cast = reference?.CastPhotos ?? [];
             BekiReferences.Add(cast.FirstOrDefault(photo => photo.Name == BekiIdentity.ReferenceLabel)?.Bytes);
+            BekiHandReferences.Add(cast.FirstOrDefault(photo => photo.Name == BekiIdentity.HandsReferenceLabel)?.Bytes);
+            ReferenceLabels.Add(reference is null ? [] : ["Lead image", .. cast.Select(photo => photo.Name)]);
             ReferenceCounts.Add(reference is null ? 0 : 1 + cast.Count);
 
             /*

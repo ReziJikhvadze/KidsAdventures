@@ -21,6 +21,8 @@ public static class BekiIdentity
     /// <summary>The label every reference attachment carries, so the model knows which file rules.</summary>
     public const string ReferenceLabel = "Beki master reference - the sole authority for Beki's design";
 
+    public const string HandsReferenceLabel = "Beki hand details - enlarged crops of the approved master, not generated artwork";
+
     /// <summary>
     /// The identity lock, condensed from the pack's AI prompt. Sent with every image that
     /// contains Beki: the reference shows the design, and this names the features the design
@@ -39,7 +41,8 @@ public static class BekiIdentity
 
     /// <summary>Continuity for a story spread that lists Beki.</summary>
     public const string GenerationLock =
-        "The final attached image is the canonical Beki reference, the sole authority for Beki. "
+        "The explicitly labelled Beki master reference is the sole authority for Beki. "
+        + "It comes before the world and previous-spread references so those cannot redefine Beki. "
         + "Include exactly one Beki in the finished scene. Treat Beki as the SAME fixed character "
         + "asset on every page, not a new interpretation. Ignore any Beki visible in child anchors, "
         + "previous spreads, continuity images or theme references: those images are NOT Beki design "
@@ -75,8 +78,9 @@ public static class BekiIdentity
         + "lips, beak, closed-mouth smile, wide grin, frown or surprised O-shaped mouth. ";
 
     public const string GenerationFinalCheck =
-        "FINAL BEKI IDENTITY CHECK: before finishing this image, compare Beki with the final "
-        + "canonical reference. Each fully visible hand has FOUR rounded digits INCLUDING the thumb; "
+        "FINAL BEKI IDENTITY CHECK: before finishing this image, compare Beki with the labelled "
+        + "approved master and its hand details when supplied, never with a previous spread. "
+        + "Each fully visible hand has FOUR rounded digits INCLUDING the thumb; "
         + "both eyes retain the same golden irises, dark pupils, size and spacing; the violet face "
         + "outline and small open smile are unchanged. Preserve the same silhouette, proportions, "
         + "head spiral, rear ribbon and chest core. If the action conflicts, simplify the action, "

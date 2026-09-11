@@ -98,7 +98,7 @@ public class FastBookGenerationTests : CompositePipelineTestBase
     }
 
     [Fact]
-    public async Task Generated_Beki_uses_reference_once_per_spread_without_compositing_or_review()
+    public async Task Every_spread_prioritizes_the_original_Beki_and_source_hands_before_generated_references()
     {
         var images = new StubImageService();
         var result = await Pipeline(new ScriptedStoryModelClient(ScenarioFixture()), images,
@@ -109,7 +109,10 @@ public class FastBookGenerationTests : CompositePipelineTestBase
         Assert.Equal(0, images.ReviewCalls);
         Assert.All(images.StrictFlags, Assert.True);
         var reference = BekiGeneratedArtwork.Reference();
+        var hands = BekiGeneratedArtwork.HandDetails(reference);
+        Assert.NotNull(hands);
         Assert.All(images.BekiReferences, bytes => Assert.Equal(reference, bytes));
+        Assert.All(images.BekiHandReferences, bytes => Assert.Equal(hands, bytes));
         foreach (var spread in result.Spreads)
         {
             Assert.Equal(spread.BasePng, spread.CompositePng);
@@ -124,13 +127,49 @@ public class FastBookGenerationTests : CompositePipelineTestBase
             Assert.Contains("golden-yellow/amber irises", spread.Prompt);
             Assert.Contains("MOUTH: preserve the same small open upturned", spread.Prompt);
             Assert.Contains("those images are NOT Beki design", spread.Prompt);
-            Assert.Contains($"Image {images.ReferenceCounts[spread.Page - 1]} (FINAL IMAGE)", spread.Prompt);
+            var labels = images.ReferenceLabels[spread.Page - 1].ToList();
+            var masterIndex = labels.IndexOf(BekiIdentity.ReferenceLabel);
+            var handsIndex = labels.IndexOf(BekiIdentity.HandsReferenceLabel);
+            Assert.Equal(spread.Page == 1 ? 1 : 2, masterIndex);
+            Assert.Equal(masterIndex + 1, handsIndex);
+            Assert.StartsWith("Approved ", labels[handsIndex + 1]);
+            var continuityIndex = labels.IndexOf("Continuity reference");
+            if (continuityIndex >= 0) Assert.True(continuityIndex > handsIndex);
+            Assert.Contains($"Image {masterIndex + 1} - {BekiIdentity.ReferenceLabel}", spread.Prompt);
+            Assert.Contains($"Image {handsIndex + 1} - {BekiIdentity.HandsReferenceLabel}", spread.Prompt);
+            Assert.DoesNotContain("FINAL IMAGE", spread.Prompt);
+            using var qa = JsonDocument.Parse(spread.QaJson!);
+            Assert.Equal("approved-master", qa.RootElement.GetProperty("beki_reference_source").GetString());
+            Assert.Equal(BekiCompositeEngine.Sha256Hex(hands),
+                qa.RootElement.GetProperty("hand_reference_sha256").GetString());
             Assert.EndsWith(BekiIdentity.GenerationFinalCheck, spread.Prompt.Trim());
             Assert.DoesNotContain("five-lobed", spread.Prompt);
             Assert.DoesNotContain("pose/expression adjustment", spread.Prompt);
             Assert.DoesNotContain("Do not generate Beki", spread.Prompt);
             Assert.DoesNotContain("later exact Beki PNG compositing", spread.Prompt);
         }
+        // The last page has several earlier story sources, but receives the SAME original Beki
+        // and hands as page one, ahead of all those potentially distorted generated depictions.
+        Assert.Contains("Continuity reference", images.ReferenceLabels[7]);
+        Assert.All(images.Returned, generated => Assert.NotEqual(generated, images.BekiHandReferences[7]));
+    }
+
+    [Fact]
+    public void Hand_details_are_derived_only_from_the_approved_master_without_modifying_it()
+    {
+        var reference = BekiGeneratedArtwork.Reference();
+        var original = reference.ToArray();
+        var hands = BekiGeneratedArtwork.HandDetails(reference);
+        Assert.NotNull(hands);
+        Assert.Equal(original, reference);
+        Assert.Equal(hands, BekiGeneratedArtwork.HandDetails(reference.ToArray()));
+        using var decoded = SixLabors.ImageSharp.Image.Load(hands);
+        Assert.True(decoded.Width > decoded.Height);
+        // A custom source with identical dimensions still has different framing. Do not guess
+        // where its fingers are or accidentally send a crop of its face as a hand reference.
+        Assert.Null(BekiGeneratedArtwork.HandDetails(Png(1024, 1536)));
+        if (Environment.GetEnvironmentVariable("BEKI_HANDS_PROOF_PATH") is { Length: > 0 } path)
+            File.WriteAllBytes(path, hands);
     }
 
     [Fact]
@@ -144,6 +183,7 @@ public class FastBookGenerationTests : CompositePipelineTestBase
         Assert.Equal(BookFormat.SpreadCount, images.ImageCalls);
         Assert.Equal(0, images.ReviewCalls);
         Assert.All(images.BekiReferences, Assert.Null);
+        Assert.All(images.BekiHandReferences, Assert.Null);
         foreach (var spread in result.Spreads)
         {
             Assert.False(spread.Manifest!.BekiLayer.Redrawn);
@@ -157,7 +197,8 @@ public class FastBookGenerationTests : CompositePipelineTestBase
     public void Stronger_identity_lock_versions_new_generation_but_preserves_old_book_provenance()
     {
         var receipt = BekiGeneratedArtwork.Receipt(BasePng(), BekiGeneratedArtwork.Reference(), "spread.png");
-        Assert.Equal("beki-reference-generated-v3", receipt.CompositionVersion);
+        Assert.Equal("beki-reference-generated-v4", receipt.CompositionVersion);
+        Assert.True(BekiGeneratedArtwork.IsGenerated(receipt with { CompositionVersion = "beki-reference-generated-v3" }));
         Assert.True(BekiGeneratedArtwork.IsGenerated(receipt with { CompositionVersion = "beki-reference-generated-v2" }));
         Assert.True(BekiGeneratedArtwork.IsGenerated(receipt with { CompositionVersion = "beki-reference-generated-v1" }));
         Assert.False(BekiGeneratedArtwork.IsGenerated(receipt with { CompositionVersion = "unrecognized" }));
