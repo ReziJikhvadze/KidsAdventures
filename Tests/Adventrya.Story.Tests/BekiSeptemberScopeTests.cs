@@ -45,7 +45,7 @@ public class BekiSeptemberScopeTests
     {
         Assert.Equal("https://beki.ge", BekiOptions.WebsiteQrDestination);
         Assert.Equal("visual-scenario-v2.7", CompositeVisualScenarioPrompt.Version);
-        Assert.Equal("cover-child-world-v1.6", CompositeIllustrationPrompt.CoverVersion);
+        Assert.Equal("cover-child-world-v1.7", CompositeIllustrationPrompt.CoverVersion);
         Assert.Equal("composite-v1.4", MasterStoryPromptComposite.Version);
     }
 
