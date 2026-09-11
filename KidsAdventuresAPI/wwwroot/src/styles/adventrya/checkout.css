@@ -951,3 +951,87 @@ html[data-journey-stage="checkout"] .journey-hydrating > .grain {
   color: var(--jw-ink);
   background: #fff;
 }
+
+/*
+  Correcting a saved address, in place.
+
+  The pencil and its word are gone; the card carries a chevron, and the fields drop down under
+  the card they belong to rather than replacing the list. They arrive by growing, not by
+  appearing - a row that is 0 tall becoming its own height - so the list moves down the way a
+  drawer opens rather than jumping. The same chevron, turned, folds them back.
+*/
+.ux-address-toggle {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  margin-left: 6px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  cursor: pointer;
+  color: var(--jw-ink-soft);
+  background: none;
+  transition:
+    color 0.16s ease,
+    background 0.16s ease;
+}
+.ux-address-toggle svg {
+  transition: transform 0.28s cubic-bezier(0.2, 0.75, 0.2, 1);
+}
+.ux-address-toggle:hover,
+.ux-address-toggle:focus-visible {
+  color: var(--jw-ink);
+  background: #fff;
+}
+.ux-address-choice.is-editing .ux-address-toggle svg {
+  transform: rotate(180deg);
+}
+.ux-address-editor {
+  display: grid;
+  grid-template-rows: 1fr;
+  animation: ux-editor-drop 0.32s cubic-bezier(0.2, 0.75, 0.2, 1);
+}
+.ux-address-editor > div {
+  min-height: 0;
+  overflow: hidden;
+  padding: 6px 2px 8px;
+}
+@keyframes ux-editor-drop {
+  from {
+    grid-template-rows: 0fr;
+    opacity: 0;
+  }
+  to {
+    grid-template-rows: 1fr;
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ux-address-editor {
+    animation: none;
+  }
+}
+
+/* Save and cancel: one height, one radius, one weight of border; the gold one first. */
+.ux-address-actions {
+  gap: 8px;
+}
+.ux-address-actions .ux-address-save,
+.ux-address-actions .ux-inline-link {
+  height: 40px;
+  min-height: 40px;
+  margin: 0;
+  padding: 0 16px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 700;
+}
+.journey-checkout .ux-address-actions .ux-inline-link {
+  border: 1px solid #e2dbcf;
+  color: var(--jw-ink);
+  background: #fff;
+  box-shadow: none;
+}

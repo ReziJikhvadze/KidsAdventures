@@ -6,11 +6,10 @@ import {
   Lock,
   MapPin,
   Minus,
-  Pencil,
   Plus,
   Sparkles,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 
 import { BekiLoader } from "@/components/adventrya/BekiLoader";
 import { AddressAutocompleteField } from "@/components/adventrya/journey/AddressAutocompleteField";
@@ -269,6 +268,8 @@ export function CheckoutStage({ draft, onChange, onPaid, onPreviewStale }: Props
 
   const chooseAddress = (address: AddressResponse) => {
     setChosenAddressId(address.id);
+    /* Picking another card closes the one being corrected; the correction was not saved. */
+    setEditingAddressId((editing) => (editing && editing !== address.id ? null : editing));
     setShowErrors(false);
     applyAddress(address);
   };
@@ -332,10 +333,16 @@ export function CheckoutStage({ draft, onChange, onPaid, onPreviewStale }: Props
   };
 
   const startEditAddress = (address: AddressResponse) => {
+    /* The same chevron folds the fields away, and the card keeps what it said. */
+    if (editingAddressId === address.id) {
+      setEditingAddressId(null);
+      setShowErrors(false);
+      applyAddress(address);
+      return;
+    }
     lastChosenAddressId.current = chosenAddressId;
     setChosenAddressId(address.id);
     setEditingAddressId(address.id);
-    setAddressOpen(true);
     setShowErrors(false);
     setError(null);
     applyAddress(address);
@@ -735,6 +742,114 @@ export function CheckoutStage({ draft, onChange, onPaid, onPreviewStale }: Props
     the other, never both. It says what it is doing: behind it a portrait is uploaded and an order
     is created, which is seconds on a phone connection, and aria-busy tells the reader too.
   */
+  /*
+    The fields, once, used twice: alone in place of the list for a new address, and dropped
+    under a saved card when that card is being corrected.
+  */
+  const shipFields = (
+    <div className="ux-ship-fields">
+      <label className="field" htmlFor="checkout-ship-recipient">
+        <span>{t.journey.checkout.recipient}</span>
+        <input
+          id="checkout-ship-recipient"
+          name="recipientName"
+          autoComplete="name"
+          aria-invalid={fieldErrors.recipientName ? true : undefined}
+          aria-describedby={fieldErrors.recipientName ? "checkout-ship-recipient-error" : undefined}
+          value={draft.shipping.recipientName}
+          onChange={(e) => updateShipping({ recipientName: e.target.value })}
+        />
+        {fieldErrors.recipientName ? (
+          <small id="checkout-ship-recipient-error" className="ux-field-error" role="alert">
+            {fieldErrors.recipientName}
+          </small>
+        ) : null}
+      </label>
+      <label className="field" htmlFor="checkout-ship-phone">
+        <span>{t.common.labels.phone}</span>
+        {/* +995 is in the box, not something to remember to type. */}
+        <span className="ux-tel">
+          <b aria-hidden="true">+995</b>
+          <input
+            id="checkout-ship-phone"
+            name="recipientPhone"
+            type="tel"
+            inputMode="tel"
+            autoComplete="tel"
+            placeholder="5XX XX XX XX"
+            maxLength={13}
+            aria-invalid={fieldErrors.recipientPhone ? true : undefined}
+            aria-describedby={fieldErrors.recipientPhone ? "checkout-ship-phone-error" : undefined}
+            value={formatGeorgianPhone(draft.shipping.recipientPhone)}
+            onChange={(e) => updateShipping({ recipientPhone: e.target.value })}
+          />
+        </span>
+        {fieldErrors.recipientPhone ? (
+          <small id="checkout-ship-phone-error" className="ux-field-error" role="alert">
+            {fieldErrors.recipientPhone}
+          </small>
+        ) : null}
+      </label>
+      <AddressAutocompleteField
+        id="checkout-ship-address"
+        name="addressLine1"
+        fieldClassName="field"
+        className="field-wide"
+        label={t.journey.checkout.shippingAddress}
+        placeholder={t.journey.checkout.addressPlaceholder}
+        value={draft.shipping.addressLine1}
+        onChange={(addressLine1) => updateShipping({ addressLine1, city: "" })}
+        onChoose={({ address, city }) => updateShipping({ addressLine1: address, city })}
+        onPickOnMap={() => setPickingLocation(true)}
+        invalid={Boolean(fieldErrors.addressLine1)}
+        describedBy={fieldErrors.addressLine1 ? "checkout-ship-address-error" : undefined}
+      />
+      {fieldErrors.addressLine1 ? (
+        <small id="checkout-ship-address-error" className="ux-field-error field-wide" role="alert">
+          {fieldErrors.addressLine1}
+        </small>
+      ) : null}
+      <label className="field field-wide" htmlFor="checkout-ship-notes">
+        <span>{t.journey.checkout.addressNotes}</span>
+        <textarea
+          id="checkout-ship-notes"
+          name="notes"
+          rows={2}
+          placeholder={t.journey.checkout.addressNotesPlaceholder}
+          value={draft.shipping.notes ?? ""}
+          onChange={(e) => updateShipping({ notes: e.target.value })}
+        />
+      </label>
+      {/*
+                    Two ways to close the fields, and they are different things: an address being
+                    corrected is saved back to its row or the correction is dropped; a new one is
+                    simply left, back to the list. The pay button works over open fields either
+                    way - the order goes where the fields say.
+                  */}
+      {editingAddressId ? (
+        <div className="ux-address-actions field-wide">
+          <button
+            className="button button-primary ux-address-save"
+            type="button"
+            disabled={savingAddress}
+            aria-busy={savingAddress}
+            onClick={() => void saveEditedAddress()}
+          >
+            {savingAddress ? <BekiLoader size={14} /> : null}
+            {t.journey.checkout.saveAddress}
+          </button>
+          <button className="ux-inline-link" type="button" onClick={backToSavedAddresses}>
+            {t.journey.checkout.cancelEdit}
+          </button>
+        </div>
+      ) : savedAddresses.length > 0 ? (
+        <button className="ux-inline-link field-wide" type="button" onClick={backToSavedAddresses}>
+          {t.journey.checkout.backToSavedAddresses}
+        </button>
+      ) : null}
+    </div>
+  );
+
   const payButton = (
     <button
       className="button button-primary checkout-pay"
@@ -820,36 +935,48 @@ export function CheckoutStage({ draft, onChange, onPaid, onPreviewStale }: Props
                 <div className="ux-address-list">
                   {savedAddresses.map((address) => {
                     const chosen = address.id === chosenAddressId;
+                    const editing = address.id === editingAddressId;
                     return (
-                      <div
-                        key={address.id}
-                        className={`ux-address-choice${chosen ? " is-on" : ""}`}
-                      >
-                        <label className="ux-address-pick">
-                          <input
-                            type="radio"
-                            name="savedAddress"
-                            checked={chosen}
-                            onChange={() => chooseAddress(address)}
-                          />
-                          <span className="ux-radio" aria-hidden="true" />
-                          <span>
-                            <strong>{address.addressLine1}</strong>
-                            <small>
-                              {address.recipientName} · {address.recipientPhone}
-                            </small>
-                          </span>
-                        </label>
-                        <button
-                          className="ux-address-edit"
-                          type="button"
-                          aria-label={`${t.journey.checkout.editAddress}: ${address.addressLine1}`}
-                          onClick={() => startEditAddress(address)}
+                      <Fragment key={address.id}>
+                        <div
+                          className={`ux-address-choice${chosen ? " is-on" : ""}${editing ? " is-editing" : ""}`}
                         >
-                          <Pencil aria-hidden="true" size={13} />
-                          {t.journey.checkout.editAddress}
-                        </button>
-                      </div>
+                          <label className="ux-address-pick">
+                            <input
+                              type="radio"
+                              name="savedAddress"
+                              checked={chosen}
+                              onChange={() => chooseAddress(address)}
+                            />
+                            <span className="ux-radio" aria-hidden="true" />
+                            <span>
+                              <strong>{address.addressLine1}</strong>
+                              <small>
+                                {address.recipientName} · {address.recipientPhone}
+                              </small>
+                            </span>
+                          </label>
+                          {/*
+                          The chevron opens the card: the fields drop down under it, filled from
+                          it, and the same chevron folds them away. Outside the label so pressing
+                          it edits rather than picks; the row itself still picks.
+                        */}
+                          <button
+                            className="ux-address-toggle"
+                            type="button"
+                            aria-expanded={editing}
+                            aria-label={`${t.journey.checkout.editAddress}: ${address.addressLine1}`}
+                            onClick={() => startEditAddress(address)}
+                          >
+                            <ChevronDown aria-hidden="true" size={16} />
+                          </button>
+                        </div>
+                        {editing ? (
+                          <div className="ux-address-editor">
+                            <div>{shipFields}</div>
+                          </div>
+                        ) : null}
+                      </Fragment>
                     );
                   })}
                   <button className="ux-address-add" type="button" onClick={startNewAddress}>
@@ -865,131 +992,7 @@ export function CheckoutStage({ draft, onChange, onPaid, onPreviewStale }: Props
                   one nobody can spell. The note is the half no map knows - which entrance,
                   which floor, what to press - and is asked as the question it is.
                 */
-                <div className="ux-ship-fields">
-                  <label className="field" htmlFor="checkout-ship-recipient">
-                    <span>{t.journey.checkout.recipient}</span>
-                    <input
-                      id="checkout-ship-recipient"
-                      name="recipientName"
-                      autoComplete="name"
-                      aria-invalid={fieldErrors.recipientName ? true : undefined}
-                      aria-describedby={
-                        fieldErrors.recipientName ? "checkout-ship-recipient-error" : undefined
-                      }
-                      value={draft.shipping.recipientName}
-                      onChange={(e) => updateShipping({ recipientName: e.target.value })}
-                    />
-                    {fieldErrors.recipientName ? (
-                      <small
-                        id="checkout-ship-recipient-error"
-                        className="ux-field-error"
-                        role="alert"
-                      >
-                        {fieldErrors.recipientName}
-                      </small>
-                    ) : null}
-                  </label>
-                  <label className="field" htmlFor="checkout-ship-phone">
-                    <span>{t.common.labels.phone}</span>
-                    {/* +995 is in the box, not something to remember to type. */}
-                    <span className="ux-tel">
-                      <b aria-hidden="true">+995</b>
-                      <input
-                        id="checkout-ship-phone"
-                        name="recipientPhone"
-                        type="tel"
-                        inputMode="tel"
-                        autoComplete="tel"
-                        placeholder="5XX XX XX XX"
-                        maxLength={13}
-                        aria-invalid={fieldErrors.recipientPhone ? true : undefined}
-                        aria-describedby={
-                          fieldErrors.recipientPhone ? "checkout-ship-phone-error" : undefined
-                        }
-                        value={formatGeorgianPhone(draft.shipping.recipientPhone)}
-                        onChange={(e) => updateShipping({ recipientPhone: e.target.value })}
-                      />
-                    </span>
-                    {fieldErrors.recipientPhone ? (
-                      <small id="checkout-ship-phone-error" className="ux-field-error" role="alert">
-                        {fieldErrors.recipientPhone}
-                      </small>
-                    ) : null}
-                  </label>
-                  <AddressAutocompleteField
-                    id="checkout-ship-address"
-                    name="addressLine1"
-                    fieldClassName="field"
-                    className="field-wide"
-                    label={t.journey.checkout.shippingAddress}
-                    placeholder={t.journey.checkout.addressPlaceholder}
-                    value={draft.shipping.addressLine1}
-                    onChange={(addressLine1) => updateShipping({ addressLine1, city: "" })}
-                    onChoose={({ address, city }) =>
-                      updateShipping({ addressLine1: address, city })
-                    }
-                    onPickOnMap={() => setPickingLocation(true)}
-                    invalid={Boolean(fieldErrors.addressLine1)}
-                    describedBy={
-                      fieldErrors.addressLine1 ? "checkout-ship-address-error" : undefined
-                    }
-                  />
-                  {fieldErrors.addressLine1 ? (
-                    <small
-                      id="checkout-ship-address-error"
-                      className="ux-field-error field-wide"
-                      role="alert"
-                    >
-                      {fieldErrors.addressLine1}
-                    </small>
-                  ) : null}
-                  <label className="field field-wide" htmlFor="checkout-ship-notes">
-                    <span>{t.journey.checkout.addressNotes}</span>
-                    <textarea
-                      id="checkout-ship-notes"
-                      name="notes"
-                      rows={2}
-                      placeholder={t.journey.checkout.addressNotesPlaceholder}
-                      value={draft.shipping.notes ?? ""}
-                      onChange={(e) => updateShipping({ notes: e.target.value })}
-                    />
-                  </label>
-                  {/*
-                    Two ways to close the fields, and they are different things: an address being
-                    corrected is saved back to its row or the correction is dropped; a new one is
-                    simply left, back to the list. The pay button works over open fields either
-                    way - the order goes where the fields say.
-                  */}
-                  {editingAddressId ? (
-                    <div className="ux-address-actions field-wide">
-                      <button
-                        className="button button-primary ux-address-save"
-                        type="button"
-                        disabled={savingAddress}
-                        aria-busy={savingAddress}
-                        onClick={() => void saveEditedAddress()}
-                      >
-                        {savingAddress ? <BekiLoader size={14} /> : null}
-                        {t.journey.checkout.saveAddress}
-                      </button>
-                      <button
-                        className="ux-inline-link"
-                        type="button"
-                        onClick={backToSavedAddresses}
-                      >
-                        {t.journey.checkout.cancelEdit}
-                      </button>
-                    </div>
-                  ) : savedAddresses.length > 0 ? (
-                    <button
-                      className="ux-inline-link field-wide"
-                      type="button"
-                      onClick={backToSavedAddresses}
-                    >
-                      {t.journey.checkout.backToSavedAddresses}
-                    </button>
-                  ) : null}
-                </div>
+                shipFields
               )}
             </section>
 
