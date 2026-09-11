@@ -23,7 +23,7 @@ const HERO_TITLE = "";
  * of the product. The sample belongs to nobody, so it names the world it is set in rather than
  * a child who does not exist.
  */
-const HERO_COVER_CAPTION = "სინათლის ქალაქი.";
+const HERO_COVER_CAPTION = "სინათლის ქალაქი";
 
 export function Hero() {
   const t = useT();

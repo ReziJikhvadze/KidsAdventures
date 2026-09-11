@@ -199,7 +199,9 @@ function Voices() {
 function Faq() {
   const t = useT();
   const L = t.landing.faq;
-  const [openIndex, setOpenIndex] = useState(0);
+  // Every question starts folded, the first one too: an answer already open reads as a notice
+  // rather than an answer, and the list is for the reader with a question, not for everyone.
+  const [openIndex, setOpenIndex] = useState(-1);
 
   return (
     <section id="faq" className="landing-v3-section landing-v3-faq">
