@@ -357,16 +357,19 @@ export async function newAddressSession(): Promise<unknown> {
   }
 }
 
-/** The address a chosen prediction stands for, or null if Google will not say. */
+/**
+ * The address a chosen prediction stands for, or null if Google will not say - and where it is,
+ * so a map that is open can go there without asking Google a second time.
+ */
 export async function resolvePrediction(
   prediction: PlacePrediction,
-): Promise<{ address: string; city: string } | null> {
+): Promise<{ address: string; city: string; location: LatLngLike | null } | null> {
   try {
     const place = prediction.toPlace();
-    await place.fetchFields({ fields: ["formattedAddress", "addressComponents"] });
+    await place.fetchFields({ fields: ["formattedAddress", "addressComponents", "location"] });
     const address = place.formattedAddress?.trim();
     if (!address) return null;
-    return { address, city: cityOf(place) };
+    return { address, city: cityOf(place), location: place.location ?? null };
   } catch {
     return null;
   }

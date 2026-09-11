@@ -10,7 +10,12 @@ import {
   type PlacePrediction,
 } from "@/lib/maps/googleMaps";
 
-export type ChosenAddress = { address: string; city: string };
+/** A whole address off the list, and where it is when Google said - the map dialog uses that. */
+export type ChosenAddress = {
+  address: string;
+  city: string;
+  location?: { lat(): number; lng(): number } | null;
+};
 
 type Props = {
   id: string;
@@ -134,7 +139,17 @@ export function AddressAutocompleteField({
     session.current = undefined;
     setOptions([]);
     setOpen(false);
-    if (!resolved) return;
+    if (!resolved) {
+      /*
+        Google would not say what the row stands for - a dropped connection, a quota - but the
+        parent pressed a row with words on it, and the box must not sit there holding the three
+        letters they typed as if nothing had happened. The row's own text goes in; the form
+        treats it as typed, which it now is.
+      */
+      const text = prediction.text?.toString().trim();
+      if (text) onChange(text);
+      return;
+    }
     chosen.current = resolved.address;
     onChoose(resolved);
   };

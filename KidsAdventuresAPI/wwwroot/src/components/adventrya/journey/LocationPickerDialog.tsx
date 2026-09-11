@@ -211,9 +211,14 @@ export function LocationPickerDialog({ open, onOpenChange, onChoose, initialAddr
               id="location-picker-search"
               value={query}
               onChange={setQuery}
-              onChoose={({ address }) => {
+              /*
+                A row off the list already comes with its point, so the pin goes straight there;
+                only a row Google gave no point for is looked up again by its words.
+              */
+              onChoose={({ address, city, location }) => {
                 setQuery(address);
-                holdText(address);
+                if (location) hold(async () => ({ address, city, location }));
+                else holdText(address);
               }}
               fieldClassName="field"
               className="ux-location-search"
