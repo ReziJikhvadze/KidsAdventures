@@ -388,6 +388,9 @@ export const journey = {
       addressSet: "შესანიშნავია! წიგნი ამ მისამართზე მოვა.",
       ready: "ყველაფერი მზადაა! დავასრულოთ შეკვეთა.",
     },
+    /* The server's one refusal a parent can act on: the book no longer matches its preview. */
+    previewStale: "წიგნის პრევიუ შეიცვალა - გახსენი ერთხელ კიდევ და მერე დაასრულე შეკვეთა.",
+    reopenPreview: "პრევიუს გახსნა",
     activateOrder: "შეკვეთის გააქტიურება",
     /* The photo is uploaded and the order created behind this button; it is seconds. */
     placingOrder: "შეკვეთა ფორმდება…",

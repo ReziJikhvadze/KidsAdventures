@@ -467,7 +467,14 @@ function renderStage(
     case "auth":
       return <AuthStage draft={ctx.draft} onAuthenticated={() => ctx.goToStage("checkout")} />;
     case "checkout":
-      return <CheckoutStage draft={ctx.draft} onChange={ctx.setDraft} onPaid={ctx.onPaid} />;
+      return (
+        <CheckoutStage
+          draft={ctx.draft}
+          onChange={ctx.setDraft}
+          onPaid={ctx.onPaid}
+          onPreviewStale={() => ctx.goToStage("preview")}
+        />
+      );
     case "generating":
     case "generated":
       return <GeneratingStage draft={ctx.draft} onChange={ctx.setDraft} />;

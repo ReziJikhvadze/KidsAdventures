@@ -936,3 +936,18 @@ html[data-journey-stage="checkout"] .journey-hydrating > .journey-shade,
 html[data-journey-stage="checkout"] .journey-hydrating > .grain {
   display: none;
 }
+
+/* The way back, on the one refusal that has one: a quiet button beside the sentence. */
+.journey-checkout .ux-form-error {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+}
+.journey-checkout .ux-form-error .ux-error-action {
+  min-height: 34px;
+  padding: 0 12px;
+  border-color: #c9bfe0;
+  color: var(--jw-ink);
+  background: #fff;
+}

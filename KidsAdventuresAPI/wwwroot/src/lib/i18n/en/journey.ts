@@ -329,6 +329,8 @@ export const journey = {
       addressSet: "Lovely! The book will come to this address.",
       ready: "All set! Let's finish the order.",
     },
+    previewStale: "The book's preview has changed - open it once more, then finish the order.",
+    reopenPreview: "Open the preview",
     activateOrder: "Activate the order",
     placingOrder: "Placing your order…",
     pay: (amount: string) => `Pay · ${amount} ₾`,

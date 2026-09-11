@@ -56,6 +56,15 @@ type Props = {
   draft: JourneyDraft;
   onChange: (patch: Partial<JourneyDraft> | ((prev: JourneyDraft) => JourneyDraft)) => void;
   onPaid: (orderId: string, bookId?: string | null) => void;
+  /**
+   * The way back to the preview, for the one refusal that has one.
+   *
+   * The server checks a paid-for book against the preview it was sold on - the cover revision,
+   * the photo, the world, the child's name, age and gender - and refuses the order when they no
+   * longer match, telling the parent to open the updated preview. That is a screen, not a fix
+   * they can make here, so the refusal comes with the button that goes there.
+   */
+  onPreviewStale?: () => void;
 };
 
 /**
@@ -65,7 +74,7 @@ type Props = {
  * being bought and for how much. Nothing here takes a card number — the order is created and
  * the parent is handed to Bank of Georgia's page, which is where the card is entered.
  */
-export function CheckoutStage({ draft, onChange, onPaid }: Props) {
+export function CheckoutStage({ draft, onChange, onPaid, onPreviewStale }: Props) {
   const WORLD_BY_ID = useWorldById();
   const t = useT();
   const hero = primaryCharacter(draft);
@@ -170,6 +179,8 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
   /** The order card's arithmetic, on a phone, where it folds under the book until asked. */
   const [summaryOpen, setSummaryOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** True when the error above is the server asking for the preview to be opened again. */
+  const [previewStale, setPreviewStale] = useState(false);
 
   /** Whether this screen is still the one in front of the parent. See placeOrder. */
   const mounted = useRef(true);
@@ -623,7 +634,21 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
       // still on screen — and that click is a second order with a second Stripe session.
     } catch (err) {
       if (!mounted.current) return;
-      setError(err instanceof ApiError ? err.message : "შეკვეთა ვერ შეიქმნა.");
+      /*
+        One refusal is recognised and said in the page's own words: the server asks for the
+        updated preview when the book being ordered no longer matches the one it was sold on.
+        Recognised by its text, because the server has no code for it - see `onPreviewStale`.
+      */
+      const stale =
+        err instanceof ApiError && /updated preview|განახლებულ[ი ]+პრევიუ/i.test(err.message);
+      setPreviewStale(stale);
+      setError(
+        stale
+          ? t.journey.checkout.previewStale
+          : err instanceof ApiError
+            ? err.message
+            : "შეკვეთა ვერ შეიქმნა.",
+      );
       // Only a failure gives the button back. Every success either navigates away or hands the
       // journey to the generating stage, and neither wants this screen accepting another press.
       setBusy(false);
@@ -1264,7 +1289,20 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
         </div>
       </aside>
 
-      {error ? <p className="ux-form-error">{error}</p> : null}
+      {error ? (
+        <div className="ux-form-error" role="alert">
+          {error}
+          {previewStale && onPreviewStale ? (
+            <button
+              className="ux-inline-link ux-error-action"
+              type="button"
+              onClick={onPreviewStale}
+            >
+              {t.journey.checkout.reopenPreview}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
 
       {/* The phone's till: the total and the button, kept at the foot of the window. */}
       <div className="ux-checkout-bar">
