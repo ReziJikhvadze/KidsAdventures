@@ -680,14 +680,20 @@
   it — it tilts the picture, and six pictures of the same book at six angles read as a crooked
   scan rather than a shelf. The vertical offset survives, because that is the shelf.
 */
-.landing-v3-example-book:nth-child(3n + 1) {
-  transform: translateY(14px);
+/*
+  The covers stand at staggered heights; the words under them do not. The offset used to move
+  the whole column, so three titles in a row sat at three heights and the row read as crooked
+  type rather than a shelf of books. Now only the picture stands up or down, and the titles
+  share one line.
+*/
+.landing-v3-example-book:nth-child(3n + 1) .landing-v3-example-art {
+  --shelf-y: 14px;
 }
-.landing-v3-example-book:nth-child(3n + 2) {
-  transform: translateY(-8px);
+.landing-v3-example-book:nth-child(3n + 2) .landing-v3-example-art {
+  --shelf-y: -8px;
 }
-.landing-v3-example-book:nth-child(3n) {
-  transform: translateY(12px);
+.landing-v3-example-book:nth-child(3n) .landing-v3-example-art {
+  --shelf-y: 12px;
 }
 /*
   Photograph over caption, and the whole column is the one link.
@@ -711,10 +717,12 @@
   display: block;
   /* The photograph's own frame, so the cut-out never has to be cropped or letterboxed. */
   aspect-ratio: 1200 / 930;
+  /* Where it stands on the shelf, and the same lift on hover from wherever that is. */
+  transform: translateY(var(--shelf-y, 0px));
   transition: transform 0.35s cubic-bezier(0.2, 0.75, 0.2, 1);
 }
 .landing-v3-example-book:hover .landing-v3-example-art {
-  transform: translateY(-9px);
+  transform: translateY(calc(var(--shelf-y, 0px) - 9px));
 }
 .landing-v3-example-art img {
   display: block;
@@ -1958,9 +1966,9 @@
   .landing-v3-book-arrow {
     display: none;
   }
-  .landing-v3-example-book:nth-child(n) {
+  .landing-v3-example-book:nth-child(n) .landing-v3-example-art {
     /* No lean where only one cover is on screen: it reads as a crooked photograph, not a shelf. */
-    transform: none;
+    --shelf-y: 0px;
   }
   .landing-v3-example-book {
     /* One cover at a time, so it belongs in the middle of the screen rather than at its edge. */
