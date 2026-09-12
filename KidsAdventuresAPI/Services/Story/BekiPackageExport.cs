@@ -238,9 +238,13 @@ public sealed class BekiPackageExport(IBlobStorageService blobStorage, IOptions<
 
         var entries = new List<PackageBlob>
         {
+            // Optional, because no PDF of this book is stored: the customer download composes
+            // one for the request that asks for it, and the printer's is prepared when a printer
+            // needs it. A package from before that will still carry the file it has.
             new(BekiPackBlobs.ReadingPdfName(userId, packId),
                 Deliverable(CanonicalBookFileName(packId), canonicalReleased),
-                canonicalReleased ? PackageStatus.Canonical : PackageStatus.Diagnostic),
+                canonicalReleased ? PackageStatus.Canonical : PackageStatus.Diagnostic,
+                Optional: true),
 
             new(BekiPackBlobs.CanonicalPreflightName(userId, packId), "press/canonical-preflight.json", PackageStatus.Canonical),
             new(BekiPackBlobs.PressStatusName(userId, packId), "press/press-status.json", PackageStatus.Canonical),
