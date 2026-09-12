@@ -68,6 +68,12 @@ export const story = {
       /* The two sentences that replaced a raw English 400. */
       held: "წიგნი გადის ბოლო შემოწმებას - ჩამოტვირთვა მალე გაიხსნება.",
       failed: "PDF ვერ ჩამოიტვირთა - ცოტა ხანში სცადე ხელახლა.",
+      /*
+        The file has left. Said carefully: the browser takes the download from here and this
+        page is not told where it lands, so this says the download started and not that the file
+        was saved. It clears itself after a few seconds - a line that stays becomes furniture.
+      */
+      started: "ჩამოტვირთვა დაიწყო.",
     },
     /* A book still being made, opened in the reader. What stood here was an empty volume: the
        covers, and nothing between them. */

@@ -1118,14 +1118,21 @@ export function StorybookVolume({
   }, [fullscreen]);
 
   /*
-    Which books are read rather than counted.
+    No book is counted any more.
 
-    The home page's sample and the preview are both a book on display: one is a shop window, the
-    other is two free pages shown to someone deciding whether to buy. Neither is being paged
-    through for a place in a story, so a counter under them is bookkeeping. The reader and the
-    order summary keep theirs.
+    The shop window and the preview lost their counter first, for being books on display rather
+    than books being read. The reader kept one on the argument that somebody paging through a
+    story wants to know where they are in it — and a picture book of eight spreads is not a
+    document you hold a place in. "2 / 16" under a child's story is bookkeeping wherever it is
+    printed, and in the reader it was printed twice: once here and once as a folio at the foot
+    of the page, both saying the same number in the same words.
+
+    `display` is the 82px thumbnail on the shelf and in the order summary; it draws no controls
+    at all, so this never reaches it. That leaves the two reading surfaces, which is the whole
+    of what this now turns off. Nothing about paging changes: `displayIndex` is untouched, and
+    it is still what decides which leaves are drawn and where a turn goes next.
   */
-  const countless = variant === "hero" || variant === "preview";
+  const countless = true;
 
   // The back cover sits past the last story page, so numbering it produces inverted
   // ranges like "7–6" on the final step. It gets its own label instead.

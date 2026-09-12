@@ -770,6 +770,28 @@
   color: #fff8eb61;
   font-size: 11px;
 }
+/*
+  The line under the book, made readable where it is actually read.
+
+  It says how to turn the page - swipe, the arrows, the keyboard - which is the one instruction
+  this screen has to give, and a first-time reader who misses it has a book they cannot open.
+  So it stays. What it was doing was worse than being absent: cream at 38% over the reader's
+  near-black measured 3.41:1 against a 4.5 requirement at 11px, so it was present, unreadable,
+  and therefore just noise sitting under the artwork.
+
+  56% and 12px takes it to about 6:1 with room to spare, and it is still plainly secondary -
+  the book's own title on the bar above is the same cream at full strength, and this sits at
+  a size and a weight nothing else on the screen competes with.
+
+  Scoped to `.storybook-full`, the class the two reading surfaces carry: the shop window, the
+  preview and the shelf thumbnail all hide this line entirely, so those are unaffected and the
+  base rule above is left where it is for anything that shows it in another setting.
+*/
+.storybook-full .storybook-gesture-hint {
+  color: #fff8eb8f;
+  font-size: 12px;
+  line-height: 1.4;
+}
 .storybook-volume.is-turning .storybook-surface {
   animation: none;
 }

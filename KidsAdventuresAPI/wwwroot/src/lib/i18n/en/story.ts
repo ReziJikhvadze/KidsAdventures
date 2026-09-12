@@ -58,6 +58,8 @@ export const story = {
       email: "You can close this page. We'll email you when the PDF is ready.",
       held: "The book is in its final check - the download opens shortly.",
       failed: "The PDF could not be downloaded - please try again shortly.",
+      /* "Started", not "saved": the browser takes it from here and does not report back. */
+      started: "The download has started.",
     },
     pending: {
       title: "The book is still being drawn",

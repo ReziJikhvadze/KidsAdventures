@@ -286,18 +286,6 @@ export function GeneratingStage({ draft, onChange }: Props) {
           <div className="generation-ring ring-two" aria-hidden="true" />
         </div>
 
-        {pages.length > 0 ? (
-          <div className="generation-making-of" aria-label={t.journey.generating.pagesDrawn}>
-            {pages.map((page) => (
-              <img
-                key={page.spread}
-                src={page.url}
-                alt={t.journey.generating.pageAlt(page.spread)}
-                className={page.spread === newest?.spread ? "is-newest" : ""}
-              />
-            ))}
-          </div>
-        ) : null}
       </div>
 
       <div className="generation-copy">
@@ -339,9 +327,52 @@ export function GeneratingStage({ draft, onChange }: Props) {
           </div>
         ) : null}
 
-        <ul className="preview-loader-stages" style={{ marginTop: 18 }}>
+        {/*
+          The pictures themselves, under the line that counts them.
+
+          They used to sit in the portal, after the atelier — which is absolutely positioned
+          across the whole of it and painted above them, so the strip was drawn behind the cover
+          and nobody ever saw one. Measured at 375 and at 1440 alike: the element was there, with
+          the right number of images in it, and a hit test at its centre returned the cover.
+
+          Here they are in the text column instead, directly under "დაიხატა 5 / 8 ილუსტრაცია",
+          so the number and the thing it counts are read together. There is no room left for them
+          in the portal on a phone now that the cover fills its frame, and this is the one column
+          that has room at every width.
+        */}
+        {pages.length > 0 ? (
+          <div className="generation-making-of" aria-label={t.journey.generating.pagesDrawn}>
+            {pages.map((page) => (
+              <img
+                key={page.spread}
+                src={page.url}
+                alt={t.journey.generating.pageAlt(page.spread)}
+                className={page.spread === newest?.spread ? "is-newest" : ""}
+              />
+            ))}
+          </div>
+        ) : null}
+
+        {/*
+          Three states, because there are three things to say.
+
+          The row carried one class, `active`, on every step up to and including the current one,
+          and the stylesheet it borrowed dresses `.preview-loader-stages span` — this list is
+          made of `li`. So the colour rule reached nothing, the four lines were drawn identically,
+          and a list whose whole job is to show where the book has got to showed nothing at all.
+
+          Done, current and still to come are now separate classes and are drawn as separate
+          things. `step` is unchanged and is still the real one: STATUS_STEP maps the book's own
+          status onto these four, and the eight-second timer only runs while no status has
+          arrived yet. Nothing here invents progress.
+        */}
+        <ul className="preview-loader-stages generation-stages" style={{ marginTop: 18 }}>
           {t.journey.generating.stages.map((label, index) => (
-            <li key={label} className={index <= step ? "active" : ""}>
+            <li
+              key={label}
+              className={index < step ? "is-done" : index === step ? "is-current" : "is-todo"}
+              aria-current={index === step ? "step" : undefined}
+            >
               {label}
             </li>
           ))}

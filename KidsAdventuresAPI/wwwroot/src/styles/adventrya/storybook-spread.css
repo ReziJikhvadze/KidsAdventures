@@ -662,6 +662,27 @@
 }
 
 /*
+  The folio is off in the reader, where it was the second of two.
+
+  Both readers draw the counter under the controls and this number at the foot of the page, and
+  on a phone the reader is one leaf at a time — so the same "2 / 16" was printed twice on one
+  screen, in the same words, a few centimetres apart. The counter under the controls has gone
+  (see `countless` in StorybookVolume); this is the other one.
+
+  Keyed on `.storybook-full`, which is the class both reading surfaces give the volume and no
+  other surface does: the shop window is `storybook-hero`, the preview `storybook-preview`, the
+  shelf thumbnail `storybook-display`. It travels with the element into the full-screen portal,
+  which an ancestor like `.reader-shell` would not — the book is moved to the body there.
+
+  The number itself is untouched everywhere else, and nothing about the printed book changes:
+  this is a screen rule, and the PDF is composed on the server.
+*/
+.storybook-full .storybook-text-page > i,
+.storybook-full .storybook-spread-prose > i {
+  display: none;
+}
+
+/*
   The reader's "still painting" panel.
 
   It borrows the preview's atelier illustration wholesale, because a parent has just watched

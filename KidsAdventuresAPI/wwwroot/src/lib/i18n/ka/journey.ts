@@ -478,11 +478,23 @@ export const journey = {
     pageAlt: (spread: number) => `გვერდი ${spread}`,
     spreadsDrawn: (done: number, total: number) => `დაიხატა ${done} / ${total} ილუსტრაცია`,
     ariaLabel: (hero: string) => `${hero}ს ამბავი იბადება`,
+    /*
+      The four steps, named rather than narrated.
+
+      They were first-person sentences - "გმირის სახეს ვამზადებთ" - which read as four things
+      being said to the parent one after another. A list of steps with one of them lit is a
+      diagram, and a diagram wants labels: the noun says what the step is, and which step the
+      book is standing on is said by how the row is drawn, not by the tense of its verb.
+
+      The last one also stopped promising a page count. "თექვსმეტ გვერდს" was the only place on
+      this screen that named a number, and it is not the number the row above it counts - that
+      one counts eight illustrations.
+    */
     stages: [
-      "გმირის სახეს ვამზადებთ",
-      "ისტორიის გზას ვწერთ",
-      "ილუსტრაციებს ვაცოცხლებთ",
-      "თექვსმეტ გვერდს ერთ წიგნად ვკრავთ",
+      "გმირის მომზადება",
+      "თავგადასავალის დაწერა",
+      "ილუსტრაციების გაცოცხლება",
+      "წიგნის აკინძვა",
     ],
     /*
       Where the job actually is, keyed by the book's own status.

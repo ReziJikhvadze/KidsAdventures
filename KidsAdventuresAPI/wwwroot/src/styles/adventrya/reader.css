@@ -769,6 +769,29 @@
 @media (max-width: 780px) {
   .ux-generating .generation-book {
     max-width: 100%;
+    /*
+      The cover fits its frame, which on a phone it did not.
+
+      Wrapping the title was only half of it. `.ux-book-cover` carries `min-height: 475px` on a
+      phone, and the frame it sits in is 420px tall at 430 and below with `overflow: hidden`; the
+      cover is a flex column ending in `justify-content: flex-end`, so the title is pinned to the
+      bottom of a box 55px taller than the opening it is shown through. Measured at 375: a 43px
+      title with 10px of it above the cut. Every phone width showed the top third of the letters
+      and nothing else, which is worse than no title at all - it reads as a rendering fault on
+      the one screen a parent stares at for several minutes after paying.
+
+      The intended sizing was there and never applied: the two mobile blocks in first-map.css
+      shrink `.generation-atelier > .storybook`, and this screen has not rendered a `.storybook`
+      since it moved to `.ux-book-cover`. Rather than revive that selector, the cover is simply
+      told to be its frame's height. `.generation-atelier` is absolutely positioned by `inset`,
+      so its height is definite and the percentage resolves; the title then sits at the foot of
+      the cover, inside the frame, at every width from 320 up.
+
+      Desktop is untouched and needs nothing: there the portal is tall enough that the whole
+      title already clears it, measured at 1440 with 26px of a 26px title visible.
+    */
+    min-height: 0;
+    height: 100%;
   }
   .ux-generating .ux-book-cover h2 {
     font-size: clamp(15px, 4.6vw, 19px);
@@ -905,6 +928,34 @@
   margin: 8px 20px 0;
   color: #f1c970;
   font-size: 11px;
+}
+/* Good news in green rather than the amber the held and failed lines share, so the colour says
+   which of the three this is before the sentence is read. */
+.reader-bar-note.is-good {
+  color: #9ee0bd;
+}
+
+/*
+  The download button, while it is downloading.
+
+  The arrow becomes a turning ring in the same 17px box, so nothing in the bar moves when the
+  state changes: the button keeps its width, the title keeps its room, and the only thing that
+  happens is that the icon starts turning. Motion is the whole signal here, so it is the one
+  thing a reduced-motion reader gives up; the label and the accessible name still change, and
+  the button is still visibly disabled.
+*/
+.reader-bar-spin {
+  animation: reader-bar-spin 0.9s linear infinite;
+}
+@keyframes reader-bar-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .reader-bar-spin {
+    animation: none;
+  }
 }
 
 .reader-stage {
@@ -1185,11 +1236,60 @@
   .reader-bar-pill span {
     display: none;
   }
+  /*
+    Three controls on this bar, and on a phone all three are a bare icon: the way back, the
+    world passport and the download. With the labels hidden above, the pills were sized by the
+    padding that used to sit either side of a word - 44 wide - while the back square was set to
+    40, so the row read as one slightly smaller square followed by two slightly larger ones, and
+    the two icon sets were drawn at different sizes into the bargain, 17px against 14px.
+
+    None of them reached a 44px touch target either. Every one was 40px tall, which is under the
+    floor on the screen a child holds and taps while being read to, and it is the same 40px on
+    the back control that has to be hit to leave the book.
+
+    So all three become the same 44px square with the same 17px icon in the middle. The pill
+    stops deriving its width from padding, because there is no longer any text for the padding
+    to sit around; a fixed square and centred content is what it actually is here. Nothing moves
+    on a wide screen, where the pills still carry their words and are sized by them.
+  */
+  .reader-bar-icon,
+  .reader-bar-pill {
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    justify-content: center;
+  }
+  .reader-bar-icon svg,
+  .reader-bar-pill svg {
+    width: 17px;
+    height: 17px;
+  }
   .reader-stage {
     padding: 14px 14px 22px;
   }
   .reader-shell-book .storybook-full {
-    --book-width: min(calc(100vw - 28px), calc((100svh - 210px) * 1.085));
+    /*
+      What the board has to share the screen with, measured rather than guessed.
+
+      The fit itself is right and is left alone: the board is 1.085:1, so the widest it can be
+      is whichever runs out first, the screen's width or the screen's height read back through
+      that ratio. What was wrong was the second number. It subtracted 210px of chrome from the
+      height, and this layout does not spend 210px on chrome: the bar is 56, the stage pads 14
+      above and 22 below, and the zoom control is absolutely positioned in the corner and takes
+      no room in the flow at all. The gesture line under the book is the rest.
+
+      On a portrait phone that error is invisible, because the width term wins by a mile and the
+      height term never binds. It shows up the moment the screen is short - a phone turned on
+      its side, or a browser whose address bar is up - and there it is the binding term, so the
+      whole book is sized by a number that is 80px too pessimistic. At 568x320 that resolved to
+      a 119px board with 540px of width going spare: a postage stamp in the middle of an empty
+      screen, which is exactly the state this fixes.
+
+      Named rather than inlined so the two numbers below can be read against the bar and the
+      padding they come from, and corrected together if either changes.
+    */
+    --reader-chrome: 136px;
+    --book-width: min(calc(100vw - 28px), calc((100svh - var(--reader-chrome)) * 1.085));
   }
   /* Under a thumb rather than beside it: the fore-edges are where the screen ends. */
   .reader-shell-book .storybook-controls button {

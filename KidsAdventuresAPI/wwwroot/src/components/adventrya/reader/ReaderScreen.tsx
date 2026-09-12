@@ -1,4 +1,4 @@
-import { ArrowLeft, Download, Minus, Plus, Sparkles } from "lucide-react";
+import { Download, Library, Loader2, Minus, Plus, Sparkles } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "@tanstack/react-router";
 
@@ -41,6 +41,21 @@ export function ReaderScreen() {
   // Kept apart from `error`, which replaces the whole book with a message. A PDF that failed
   // is no reason to stop showing the story.
   const [pdfError, setPdfError] = useState<string | null>(null);
+  /*
+    The file has gone to the browser. True for a few seconds and then not.
+
+    The button cannot say this: the moment the download is handed over it goes back to being a
+    download button, which looks exactly like a button that was never pressed. A line that says
+    so, in the place the failures already speak from, is the difference between "did that work?"
+    and knowing. It is not a claim that the file is saved — where it went is the browser's
+    business and this page is never told — which is why it says started rather than finished.
+  */
+  const [pdfStarted, setPdfStarted] = useState(false);
+  useEffect(() => {
+    if (!pdfStarted) return;
+    const timer = window.setTimeout(() => setPdfStarted(false), 4500);
+    return () => window.clearTimeout(timer);
+  }, [pdfStarted]);
 
   /*
     How close the reader is standing, and to which part of the picture.
@@ -226,6 +241,7 @@ export function ReaderScreen() {
 
     setDownloading(true);
     setPdfError(null);
+    setPdfStarted(false);
     try {
       let ready = pack;
       if (!ready.pdfUrl) {
@@ -241,6 +257,7 @@ export function ReaderScreen() {
         setPack(ready);
       }
       await downloadAdventurePack(ready.id, `${title}.pdf`, title);
+      setPdfStarted(true);
     } catch {
       // One Georgian line, whatever happened. What stood here forwarded the server's own string,
       // and the strings on this path are English operator messages with failure codes in them.
@@ -370,12 +387,27 @@ export function ReaderScreen() {
         two things a parent might want that are not reading it.
       */}
       <div className="reader-bar">
+        {/*
+          A shelf of books, because that is where this goes.
+
+          It was a left arrow, which is the one thing this control is not: it does not undo a
+          step or return to whatever the parent was looking at before, it opens their space.
+          The label under it has said "ბიბლიოთეკა" all along, so the arrow was contradicting the
+          only description of it there was, and on a phone the label is the accessible name and
+          nothing more - the icon was the whole of what a parent could see.
+
+          Not the open book the site header uses for the same route, deliberately. That icon
+          reads as "a book" and this screen is already showing one, full width, directly below;
+          the shelf is the version of the idea that cannot be mistaken for the thing being read.
+          The destination, the route and the label are untouched.
+        */}
         <Link
           className="reader-bar-icon"
           to="/dashboard"
+          title={t.story.reader.library.trim()}
           aria-label={t.story.reader.library.trim()}
         >
-          <ArrowLeft aria-hidden="true" />
+          <Library aria-hidden="true" />
         </Link>
         <span className="reader-bar-title">
           <small>{heroName}</small>
@@ -393,14 +425,35 @@ export function ReaderScreen() {
               <span>{t.story.reader.worldPassport}</span>
             </Link>
           ) : null}
+          {/*
+            The one control here that takes a while, so the one that has to say so.
+
+            It already knew it was working — the label swapped to "მზადდება…" and the button
+            disabled itself — and on a phone none of that was visible, because the label beside
+            the icon is hidden below 780px. All a parent saw was a download arrow that did not
+            appear to do anything, for however long the file took to build. So the icon itself
+            carries the state now: the arrow becomes a turning ring, and the accessible name
+            changes with it rather than staying "download a PDF" while it is already downloading.
+
+            No percentage. This waits on a job whose progress the endpoint does not report, and
+            a bar that fills on a timer would be a promise nothing here can keep.
+          */}
           <button
             className="reader-bar-pill"
             type="button"
             disabled={!pack || downloading || isIllustrating || isPending}
-            aria-label={t.journey.generated.downloadPdf}
+            aria-busy={downloading || undefined}
+            aria-label={
+              downloading ? t.story.reader.pdf.building : t.journey.generated.downloadPdf
+            }
+            title={downloading ? t.story.reader.pdf.building : t.journey.generated.downloadPdf}
             onClick={() => void onDownload()}
           >
-            <Download aria-hidden="true" />
+            {downloading ? (
+              <Loader2 className="reader-bar-spin" aria-hidden="true" />
+            ) : (
+              <Download aria-hidden="true" />
+            )}
             <span>
               {downloading ? t.story.reader.pdf.building : t.journey.generated.downloadPdf}
             </span>
@@ -408,10 +461,23 @@ export function ReaderScreen() {
         </span>
       </div>
 
-      {/* Said where it happened, rather than over the book. */}
-      {(pdfError ?? (pack?.downloadHeld ? t.story.reader.pdf.held : null)) ? (
-        <p className="reader-bar-note" role={pdfError ? "alert" : undefined}>
-          {pdfError ?? t.story.reader.pdf.held}
+      {/*
+        Said where it happened, rather than over the book.
+
+        Three things can stand here and only ever one at a time, in this order: what went wrong,
+        what just went right, and why the file is not available yet. A failure outranks the rest
+        because it is the one the parent has to do something about, and it is the only one that
+        interrupts a screen reader — the other two are polite.
+      */}
+      {(pdfError ??
+        (pdfStarted ? t.story.reader.pdf.started : null) ??
+        (pack?.downloadHeld ? t.story.reader.pdf.held : null)) ? (
+        <p
+          className={`reader-bar-note${pdfError ? "" : " is-good"}`}
+          role={pdfError ? "alert" : "status"}
+          aria-live={pdfError ? undefined : "polite"}
+        >
+          {pdfError ?? (pdfStarted ? t.story.reader.pdf.started : t.story.reader.pdf.held)}
         </p>
       ) : null}
 

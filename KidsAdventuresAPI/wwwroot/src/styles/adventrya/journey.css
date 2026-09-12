@@ -1698,17 +1698,24 @@
 }
 
 /* The pages drawn so far, under the book being generated. Landscape spreads, newest lit. */
+/*
+  The spreads as they are drawn, in the text column under the line that counts them.
+
+  Centred inside a 420px box is what this was when it lived in the portal, where it was never
+  visible: four across the column reads with the copy around it instead of floating in the
+  middle of it. A grid rather than wrapped flex, because eight spreads over four columns is two
+  even rows at every width, where a fixed 92px fitted two per row on a 320px screen and left a
+  third of the column empty.
+*/
 .generation-making-of {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
-  justify-content: center;
-  margin-top: 14px;
-  max-width: 420px;
+  margin-top: 12px;
 }
 
 .generation-making-of img {
-  width: 92px;
+  width: 100%;
   aspect-ratio: 3 / 2;
   object-fit: cover;
   border-radius: 8px;
@@ -1720,6 +1727,92 @@
   opacity: 1;
   border-color: rgba(255, 214, 130, 0.85);
   box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
+}
+
+/*
+  The four steps, drawn as three different things.
+
+  A vertical list, one row per step, and never a horizontal track: four Georgian labels laid
+  across a 320px screen would each get seventy pixels and break mid-word, and this list is read
+  once every couple of minutes rather than scanned.
+
+  The marker carries the state and the text follows it, which is what keeps the section quiet
+  enough to sit under the book rather than compete with it: a done step is a small green tick, a
+  step still to come is a hollow ring at low contrast, and only the one the book is actually on
+  is lit gold and set in the brighter cream. One row of the four is emphasised at any time.
+
+  Scoped under `.ux-generating` because `.preview-loader-stages` is shared with the preview
+  screen, whose rows are spans and are dressed by the older rules in journey-extras.css.
+*/
+.ux-generating .generation-stages {
+  display: grid;
+  gap: 10px;
+}
+
+.ux-generating .generation-stages li {
+  display: grid;
+  grid-template-columns: 17px minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
+  color: rgba(242, 234, 244, 0.46);
+  font-size: 13px;
+  line-height: 1.35;
+  transition:
+    color 0.35s ease,
+    opacity 0.35s ease;
+}
+
+/* The marker. One box, three fills, so the rows cannot drift out of line with each other. */
+.ux-generating .generation-stages li::before {
+  content: "";
+  display: grid;
+  width: 15px;
+  height: 15px;
+  margin-top: 2px;
+  place-items: center;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.ux-generating .generation-stages li.is-done {
+  color: rgba(158, 224, 189, 0.82);
+}
+
+.ux-generating .generation-stages li.is-done::before {
+  border-color: rgba(158, 224, 189, 0.5);
+  background: rgba(158, 224, 189, 0.14);
+  content: "✓";
+}
+
+.ux-generating .generation-stages li.is-current {
+  color: #fff2d4;
+  font-weight: 600;
+}
+
+.ux-generating .generation-stages li.is-current::before {
+  border-color: rgba(240, 204, 130, 0.95);
+  background: radial-gradient(circle at 50% 40%, #f7dfa8, #d99c4f);
+  box-shadow: 0 0 12px rgba(240, 204, 130, 0.5);
+  animation: generation-step-pulse 1.7s ease-in-out infinite;
+}
+
+/*
+  The gold marker breathes rather than blinks: the glow shrinks and returns, and the marker
+  itself never changes size, so nothing in the row moves and the text beside it stays still.
+*/
+@keyframes generation-step-pulse {
+  50% {
+    box-shadow: 0 0 3px rgba(240, 204, 130, 0.22);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ux-generating .generation-stages li.is-current::before {
+    animation: none;
+  }
 }
 
 /* The poll ran out but the book is fine. A calm card, deliberately nothing like the error

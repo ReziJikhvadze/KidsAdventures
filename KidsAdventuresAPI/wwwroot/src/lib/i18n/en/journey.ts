@@ -405,11 +405,12 @@ export const journey = {
     pageAlt: (spread: number) => `Page ${spread}`,
     spreadsDrawn: (done: number, total: number) => `${done} / ${total} illustrations painted`,
     ariaLabel: (hero: string) => `${hero}'s story is being born`,
+    /* Named, not narrated, and in step with the Georgian: see the note there. */
     stages: [
-      "Preparing the hero's face",
-      "Writing the story's path",
+      "Preparing the hero",
+      "Writing the adventure",
       "Bringing the illustrations to life",
-      "Binding sixteen pages into one book",
+      "Binding the book",
     ],
     statusLine: {
       Pending: "Order received - starting",
