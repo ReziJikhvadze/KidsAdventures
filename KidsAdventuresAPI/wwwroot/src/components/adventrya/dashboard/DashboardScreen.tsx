@@ -564,7 +564,7 @@ export function DashboardScreen({
           signing in for, and no word of it competes with the panel in front.
         */}
         <div className="ux-auth-scene" aria-hidden="true" />
-        <AppHeader backHref="/" />
+        <AppHeader backHref="/" explicitBack backLabel={t.common.nav.homeAria} />
         <PasswordlessAuthDialog
           open
           onOpenChange={(open) => {
@@ -595,7 +595,7 @@ export function DashboardScreen({
     return (
       <div className="journey-screen">
         {/* The white bar, so the coloured lockup. See the note on the cabinet below. */}
-        <AppHeader backHref="/" mark="color" />
+        <AppHeader backHref="/" explicitBack backLabel={t.common.nav.homeAria} mark="color" />
         <div className="journey-wrap">
           {/* The wait a parent meets most often, and until now the only one with nothing in
               it: a line of grey text on an empty page, which reads the same as a page that
@@ -621,7 +621,25 @@ export function DashboardScreen({
         lockup on it is a white shape on a white bar. The sign-in screen above keeps the white
         mark: it wears the same class but paints the bar back over a night sky.
       */}
-      <AppHeader backHref="/" mark="color" />
+      {/*
+        The arrow here leaves for the home page, and does not consult history to do it.
+
+        This is the one screen where "back means back" produced a trap. The reader's way out is
+        a link to this page, so reading a book and closing it leaves the browser holding
+        dashboard, reader, dashboard - and the arrow on the second dashboard, being a history
+        button, went to the reader the parent had just shut. Pressing it again came back here.
+        Two controls, each behaving correctly on its own, and a parent walking between the same
+        two screens with no way out of their own space.
+
+        `explicitBack` is the existing answer to exactly this and the journey already uses it:
+        it makes the arrow a link to the named destination instead of a history step. So the
+        parent's space becomes the hub - everything inside it returns here, and here returns to
+        the front of the site - and the loop cannot form because no leg of it reads history.
+
+        The label goes with it. An arrow that always lands on the home page should not be read
+        out as "go back", which promises the previous screen and is precisely what it is not.
+      */}
+      <AppHeader backHref="/" explicitBack backLabel={t.common.nav.homeAria} mark="color" />
 
       <main className="journey-wrap">
         <section className="journey-welcome">
@@ -694,23 +712,73 @@ export function DashboardScreen({
                       {c.id === characterId ? <Check aria-hidden="true" /> : null}
                     </DropdownMenuItem>
                   ))}
-                  {/* Adding a child used to be the last line of this menu. It is a button of its
-                      own now, beside the switcher: the menu answers "whose space am I in", and
-                      the one thing in it that did not switch anybody was the one a parent with a
-                      second child had to go hunting through a list to find. */}
+                  {/*
+                    And back into the menu, because three was one too many.
+
+                    This was the last line of this menu, then it became a button of its own beside
+                    the switcher — on the argument that a parent with a second child should not
+                    have to open a list to find it. What that produced was three controls stacked
+                    down a phone, all full width, all asking to be pressed: whose space this is,
+                    add a child, make a book. Two of the three start the same journey, and the
+                    page stopped saying which one it wanted.
+
+                    So the rarest of the three goes back where it reads as an answer rather than
+                    an offer. This menu is the "which child" control, and adding one is the last
+                    thing on that list — the same place every account switcher in the world puts
+                    it. The button it replaces carried `new=1`, which is what makes the journey
+                    open on a blank child instead of the one currently selected, and that flag
+                    comes with it: `addChildParts` is the very href the button used.
+                  */}
+                  {/*
+                    A plain icon and a label, not a face and two lines.
+
+                    The rows above are children: a portrait, a name, the book they are reading.
+                    This row is not a child and should not be dressed as one - it is the action
+                    at the foot of the list, and the lighter shape is what says so. It is also
+                    what makes it work: the rows above lay their text out through a rule keyed on
+                    the second span of the row, which never reached a row shaped differently, so
+                    an avatar-and-label copy of them collapsed its own label to nothing.
+                  */}
+                  <DropdownMenuItem
+                    className="journey-child-add"
+                    onSelect={() =>
+                      void navigate({
+                        to: addChildParts.to,
+                        search: addChildParts.search,
+                        hash: addChildParts.hash,
+                      })
+                    }
+                  >
+                    <UserPlus aria-hidden="true" />
+                    {t.dashboard.sidebar.addChild}
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : null}
 
-            <Link
-              className="journey-button journey-quiet-button"
-              to={addChildParts.to}
-              search={addChildParts.search}
-              hash={addChildParts.hash}
-            >
-              <UserPlus aria-hidden="true" />
-              {t.dashboard.sidebar.addChild}
-            </Link>
+            {/*
+              Only when there is no switcher to hold it.
+
+              Adding a child now lives at the foot of the menu above, which is the control that
+              answers "which child" and so the one place a parent looks for "and another". That
+              menu is drawn only when a child is selected, and `character` is a lookup that can
+              come back empty — no children yet, or an id that no longer matches one. In that
+              state the menu is not there to carry the link, so the button is.
+
+              Either way the row holds two things, never three: the switcher and "new book", or
+              this and "new book".
+            */}
+            {!character ? (
+              <Link
+                className="journey-button journey-quiet-button"
+                to={addChildParts.to}
+                search={addChildParts.search}
+                hash={addChildParts.hash}
+              >
+                <UserPlus aria-hidden="true" />
+                {t.dashboard.sidebar.addChild}
+              </Link>
+            ) : null}
 
             <Link
               className="journey-button journey-primary-button"

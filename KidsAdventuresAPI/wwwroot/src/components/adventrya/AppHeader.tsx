@@ -32,6 +32,16 @@ export interface AppHeaderProps {
    * stepping back one question.
    */
   explicitBack?: boolean;
+  /**
+   * What the arrow is called, when "go back" is not what it does.
+   *
+   * With `explicitBack` the arrow stops being a back button and becomes a link to one named
+   * place, and the parent's space uses that to leave for the home page. "უკან დაბრუნება" is
+   * then the wrong thing to read out: it promises the previous screen, and the previous screen
+   * is exactly where this does not go. Defaults to the back wording, so every other header is
+   * untouched.
+   */
+  backLabel?: string;
 
   /** Switches the header to its dark, child-facing variant. */
   worldMode?: boolean;
@@ -74,6 +84,7 @@ export function AppHeader({
   progressValue = 0,
   progressTrail,
   explicitBack = false,
+  backLabel,
   worldMode = false,
   minimal = false,
   mark = "white",
@@ -132,7 +143,8 @@ export function AppHeader({
           hash={back.hash}
           search={back.search}
           onClick={goBack}
-          aria-label={t.common.actions.backLink}
+          title={backLabel}
+          aria-label={backLabel ?? t.common.actions.backLink}
         >
           {/* The arrow alone. The word beside it repeated what the arrow already said, in the
               one place on every page where horizontal room is scarcest; the label lives on

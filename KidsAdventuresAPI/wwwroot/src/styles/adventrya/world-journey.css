@@ -1128,6 +1128,38 @@
   font-size: 0.88rem;
   font-weight: 800;
 }
+/*
+  The last row of the menu adds a child rather than switching to one.
+
+  Deliberately the lightest row here: an icon and a word, where the rows above carry a portrait,
+  a name and the book. The children are a set and this is the thing after them, so it is set off
+  by a hairline and drawn in the quieter ink rather than dressed up to match.
+*/
+.journey-child-menu[role="menu"] .journey-child-add {
+  /*
+    Full width, said out loud.
+
+    The rows above reach 279px of a 293px menu and this one came out 38 - its icon and its
+    padding and nothing else - with the label spilling out of the bottom of the menu in a column
+    one word wide. The child rows get their width from the `flex: 1` span inside them, which is
+    layout this row does not have and should not need; stating the width is what a row in a
+    menu actually wants.
+  */
+  width: 100%;
+  margin-top: 4px;
+  padding-top: 11px;
+  border-top: 1px solid #ece5db;
+  border-radius: 0 0 14px 14px;
+  color: #4b4460;
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+.journey-child-menu[role="menu"] .journey-child-add svg {
+  width: 17px;
+  height: 17px;
+  flex: none;
+  color: #8a7fa8;
+}
 .journey-child-menu[role="menu"] small {
   color: #655f72;
   font-size: 0.71rem;

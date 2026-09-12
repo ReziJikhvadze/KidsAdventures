@@ -586,6 +586,24 @@ svg {
   */
   .app-header-end .child-pill {
     padding: 0;
+    /*
+      And once it is a square, its icon has to stand in the middle of it.
+
+      The pill is a flex row built for a label: icon, words, chevron, packed from the left. Hiding
+      the words above leaves a 44px box still packing from the left, so the book sat 11.5px left
+      of centre while the back arrow and the sign-out button beside it were dead centre. Measured
+      the same at 320, 360, 375, 390 and 430. Only the horizontal axis was ever wrong; the row has
+      always centred its items vertically.
+
+      Centring here rather than on `.child-pill` because the label is what decides it: with the
+      words showing, packing from the left is exactly right, which is what the wide header keeps.
+
+      Note the avatar below never takes the 44px it asks for - `.child-pill .child-avatar` sets
+      `width: auto` later in this file and wins on source order - so the 44px touch target is the
+      link itself and the icon is 19px inside it. That is left alone: the target is the right
+      size, and this rule puts the icon in the middle of it.
+    */
+    justify-content: center;
   }
   .app-header-end .child-avatar {
     width: 44px;
