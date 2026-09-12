@@ -34,7 +34,10 @@ public sealed class AdminOrdersController(
     IBekiReleasePolicyService releasePolicy,
     IBekiAlarmService alarms,
     IUserContextService userContext,
-    ILogger<AdminOrdersController> logger) : ControllerBase
+    ILogger<AdminOrdersController> logger,
+    /// The press stage and the composer, for the two files this panel makes on demand. Last and
+    /// optional so the console tests that build this controller positionally keep compiling.
+    IBekiPackFulfillment? bekiFulfillment = null) : ControllerBase
 {
     /// <summary>Pixel-bound cover observations. Reading/recording them never regenerates or republishes a book.</summary>
     [HttpGet("orders/{id:guid}/cover-layout")]
@@ -321,22 +324,46 @@ public sealed class AdminOrdersController(
             return BadRequest(new { message = "Unknown PDF kind." });
         var wantsPrint = kind == PrintKind || (kind is null
             && string.Equals(detail.Order.Package, nameof(OrderPackage.Print), StringComparison.OrdinalIgnoreCase));
-        // A customer-visible PDF is not manufacturing approval. Never substitute it for a
-        // withheld print file, even though both columns share one artifact after print passes.
-        var url = wantsPrint ? pack?.PrintPdfUrl : pack?.PdfUrl;
-
-        // 409 rather than 404: the book exists and the file does not exist *yet*, which is a
-        // different thing to tell an operator — one of them has a button next to it.
-        if (string.IsNullOrWhiteSpace(url))
+        if (pack is null)
         {
-            return Conflict(new { message = wantsPrint
-                ? "ბეჭდვა შეჩერებულია: შეამოწმეთ ბეჭდვის შეცდომები. მკითხველის PDF ხელმისაწვდომია ცალკე."
-                : "PDF ჯერ არ დაგენერირებულა." });
+            return Conflict(new { message = "PDF ჯერ არ დაგენერირებულა." });
         }
 
         try
         {
-            var bytes = await blobStorage.DownloadBytesFromStoredUrlAsync(url, cancellationToken);
+            /*
+              Made for this click, and kept by nobody.
+
+              Both files used to be read from a column naming a blob. No PDF of a book is stored
+              any more, so each is made here from the artwork that is: the reading copy is
+              composed, and the printer's goes through the press stage - normalization, the
+              acceptance gates, and the upscaler where one is configured. That stage is
+              reachable from this panel and from nowhere else, which is the point of it: the
+              parent's download is the composed copy and can never be the press one.
+            */
+            if (bekiFulfillment is null)
+            {
+                return Conflict(new { message = "PDF ჯერ არ დაგენერირებულა." });
+            }
+
+            byte[] bytes;
+            try
+            {
+                bytes = wantsPrint
+                    ? await bekiFulfillment.PreparePrintPdfAsync(pack.Id, cancellationToken)
+                    : await bekiFulfillment.ComposeCustomerPdfAsync(
+                        pack.Id, pack.UserId, cancellationToken);
+            }
+            catch (BekiLayoutException held)
+            {
+                // A customer-visible PDF is not manufacturing approval. A press file the gates
+                // refused is never answered with the copy the parent downloads.
+                logger.LogInformation(held, "Pack {PackId}: {Kind} PDF refused.", pack.Id,
+                    wantsPrint ? "press" : "reading");
+                return Conflict(new { message = wantsPrint
+                    ? "ბეჭდვა შეჩერებულია: შეამოწმეთ ბეჭდვის შეცდომები. მკითხველის PDF ხელმისაწვდომია ცალკე."
+                    : "PDF ჯერ არ დაგენერირებულა." });
+            }
 
             /*
               The name says which of the two files this is, in every case rather than only the

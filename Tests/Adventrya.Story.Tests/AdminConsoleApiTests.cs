@@ -1037,7 +1037,8 @@ public class AdminConsoleApiTests
         FakeRegeneration? regeneration = null,
         FakePacks? packs = null,
         RecordingRaises? alarms = null,
-        bool canRedrive = false) =>
+        bool canRedrive = false,
+        FakeFulfillment? fulfillment = null) =>
         new(reporting ?? new FakeReporting(),
             packs ?? new FakePacks(null),
             orders ?? new FakeOrders(null),
@@ -1053,7 +1054,8 @@ public class AdminConsoleApiTests
             releasePolicy: null!,
             alarms ?? new RecordingRaises(),
             new OperatorContext(),
-            NullLogger<AdminOrdersController>.Instance)
+            NullLogger<AdminOrdersController>.Instance,
+            fulfillment ?? new FakeFulfillment())
         {
             // The PDF and image routes write a response header, which needs a context to write to.
             ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() },
@@ -1072,24 +1074,48 @@ public class AdminConsoleApiTests
     }
 
     /// <summary>A controller wired for the download route only: one order, one book, one store.</summary>
+    /// <summary>
+    /// No PDF of a book is stored, so `reading` and `print` are no longer two columns naming two
+    /// blobs: they are whether each file can be made at all. A press file whose gates failed
+    /// refuses, which is the same answer the withheld column used to give.
+    /// </summary>
     private static (AdminOrdersController Controller, FakeBlobs Blobs) PdfController(
         OrderPackage package, bool reading, bool print, string? title = BookTitle)
     {
         var pack = Pack(GenerationPipelines.Beki, AdventurePackStatus.Completed, DateTime.UtcNow);
         pack.Title = title;
-        pack.PdfUrl = reading ? "packs/reading.pdf" : null;
-        pack.PrintPdfUrl = print ? "packs/press.pdf" : null;
 
-        var blobs = new FakeBlobs([])
+        var blobs = new FakeBlobs([]);
+        var fulfillment = new FakeFulfillment
         {
-            Bytes =
-            {
-                ["packs/reading.pdf"] = Encoding.UTF8.GetBytes("reading-bytes"),
-                ["packs/press.pdf"] = Encoding.UTF8.GetBytes("print-bytes"),
-            },
+            Reading = reading ? Encoding.UTF8.GetBytes("reading-bytes") : null,
+            Print = print ? Encoding.UTF8.GetBytes("print-bytes") : null,
         };
 
-        return (Controller(new FakeReporting { Package = package }, blobs: blobs, packs: new FakePacks(pack)), blobs);
+        return (Controller(new FakeReporting { Package = package }, blobs: blobs,
+            packs: new FakePacks(pack), fulfillment: fulfillment), blobs);
+    }
+
+    private sealed class FakeFulfillment : IBekiPackFulfillment
+    {
+        public byte[]? Reading { get; init; }
+
+        public byte[]? Print { get; init; }
+
+        public Task ProcessAsync(Guid packId, Guid runId, CancellationToken cancellationToken) =>
+            Task.CompletedTask;
+
+        public Task<byte[]> ComposeCustomerPdfAsync(Guid packId, Guid userId, CancellationToken ct) =>
+            Reading is null
+                ? throw new BekiLayoutException(
+                    AdventurePacks.Api.Services.Story.Composite.CompositeFailureCodes.PrintPreflightFailed, "withheld")
+                : Task.FromResult(Reading);
+
+        public Task<byte[]> PreparePrintPdfAsync(Guid packId, CancellationToken ct) =>
+            Print is null
+                ? throw new BekiLayoutException(
+                    AdventurePacks.Api.Services.Story.Composite.CompositeFailureCodes.PrintPreflightFailed, "withheld")
+                : Task.FromResult(Print);
     }
 
     // -- doubles ---------------------------------------------------------------------------

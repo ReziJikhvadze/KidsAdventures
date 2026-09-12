@@ -63,6 +63,18 @@ public interface IBekiPackFulfillment
     Task<byte[]> ComposeCustomerPdfAsync(Guid packId, Guid userId, CancellationToken cancellationToken) =>
         throw new NotSupportedException("On-demand composition is unavailable.");
 
+    /// <summary>
+    /// The printer's file, prepared now and kept by nobody.
+    ///
+    /// This is the press stage - normalization, the acceptance gates, and the external
+    /// upscaler when a deployment configures one. It is admin-only, and that is the whole
+    /// reason it is a separate call from <see cref="ComposeCustomerPdfAsync"/>: a parent's
+    /// download has no use for print normalization, and an upscaled press file is not the
+    /// thing they are asking for. The only caller is the operator panel.
+    /// </summary>
+    Task<byte[]> PreparePrintPdfAsync(Guid packId, CancellationToken cancellationToken) =>
+        throw new NotSupportedException("Print preparation is unavailable.");
+
     /// <summary>Admin-only recovery from stored artwork. Never invokes generation or drawing.</summary>
     [DisableConcurrentExecution(BekiPackLockResource.Pattern, 60)]
     Task RecoverCustomerPdfAsync(Guid packId, CancellationToken cancellationToken) =>
@@ -625,6 +637,35 @@ public sealed class BekiPackFulfillment(
         return composer
             .ComposeReading(book.Plan, book.WrapComposite, book.Spreads, book.Personalization)
             .Pdf;
+    }
+
+    public async Task<byte[]> PreparePrintPdfAsync(Guid packId, CancellationToken cancellationToken)
+    {
+        var pack = await packRepository.GetByIdNoOwnershipAsync(packId, cancellationToken)
+            ?? throw new InvalidOperationException("Book not found.");
+
+        var book = await LoadStoredBookAsync(pack, cancellationToken);
+        var hashes = await VerifyAssetLockAsync(pack, cancellationToken);
+        var work = new PressWork { ArtworkContractDrift = book.ContractDrift };
+        var candidate = await BuildPdfCandidateAsync(pack, book.Plan, book.Spreads,
+            book.Personalization, book.WrapComposite, hashes, work, cancellationToken);
+
+        /*
+          A refused measurement is a refused file.
+
+          The print slot used to be withheld by leaving a column null, and the panel read that
+          column. There is no column now, so the refusal belongs where the measuring happens:
+          the gates ran on these exact bytes a line ago, and bytes that failed them are not
+          something an operator should be able to forward to a binder.
+        */
+        if (work.FailedGates.Count > 0)
+        {
+            throw new BekiLayoutException(
+                CompositeFailureCodes.PrintPreflightFailed,
+                "Printing is held: " + string.Join(" ", work.Reasons));
+        }
+
+        return candidate.Pdf;
     }
 
     public async Task RecoverCustomerPdfAsync(Guid packId, CancellationToken cancellationToken)
