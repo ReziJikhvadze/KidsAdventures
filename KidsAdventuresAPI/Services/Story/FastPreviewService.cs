@@ -84,14 +84,14 @@ public sealed class FastPreviewService(
         await Put(BekiRunBlobs.ScenarioName(run.Id), Encoding.UTF8.GetBytes(scenario.Json), "application/json", ct);
 
         // Compose only two preview visuals; no full PDF, print preparation, QR or credits.
-        // The single-page cover PDF preserves the exact vector title and logo used by the paid composer.
+        // The single-page cover PDF preserves the exact vector title and logo the paid composer uses.
+        // It exists to be rastered and to be hashed, and is not written down: no PDF is stored.
         var coverPdf = composer.ComposeCoverPressWithReceipts(title, wrap.CompositePng).Pdf;
         var layout = composer.CapturePreviewLayout(title, wrap.CompositePng);
         var rendered = await RasterCoverAsync(coverPdf, ct);
         var front = normalizer.NormalizeForStorageWebp(composer.CropFrontBoard(rendered));
         var intro = normalizer.NormalizeForStorageWebp(composer.RenderPreviewIntro(title,
             new BekiBookPersonalization(run.ChildName, run.Age, DateTime.UtcNow, theme, theme) { PrepareForPrint = false }));
-        await Put(FastPreviewPlan.CoverPdfName(run.Id), coverPdf, "application/pdf", ct);
         var frontUrl = await blobs.UploadAsync(BekiRunBlobs.CoverName(run.Id), front.Bytes, front.ContentType, ct);
         await Put(FastPreviewPlan.IntroName(run.Id), intro.Bytes, intro.ContentType, ct);
         var revision = new FastPreviewRevision(run.Id, Guid.NewGuid(), theme, title, FastPreviewPlan.Sha(photo),
@@ -135,9 +135,10 @@ public sealed class FastPreviewService(
             || name.Trim() != run.ChildName || age is { } givenAge && givenAge != run.Age
             || gender is not null && !string.Equals(gender, run.Gender, StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException("Please open the updated preview before checkout.");
+        // The cover being bought is the cover that was shown: ReadWrapAsync hashes the stored
+        // wrap against the revision, which is the same guarantee the cover PDF used to carry a
+        // second time. The PDF itself is not stored - nothing here keeps one.
         await ReadWrapAsync(runId, revision, ct);
-        if (FastPreviewPlan.Sha(await ReadBlob(FastPreviewPlan.CoverPdfName(runId), ct)) != revision.CoverPdfSha256)
-            throw new InvalidOperationException("The purchased cover must be recovered.");
         // Retain it before redirecting to payment; guest expiry must not race a payment callback.
         await runs.ClaimAsync(runId, userId, null, ct);
     }
