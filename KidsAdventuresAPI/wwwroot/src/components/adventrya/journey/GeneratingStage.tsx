@@ -285,7 +285,6 @@ export function GeneratingStage({ draft, onChange }: Props) {
           <div className="generation-ring ring-one" aria-hidden="true" />
           <div className="generation-ring ring-two" aria-hidden="true" />
         </div>
-
       </div>
 
       <div className="generation-copy">

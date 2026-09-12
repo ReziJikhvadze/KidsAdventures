@@ -443,9 +443,7 @@ export function ReaderScreen() {
             type="button"
             disabled={!pack || downloading || isIllustrating || isPending}
             aria-busy={downloading || undefined}
-            aria-label={
-              downloading ? t.story.reader.pdf.building : t.journey.generated.downloadPdf
-            }
+            aria-label={downloading ? t.story.reader.pdf.building : t.journey.generated.downloadPdf}
             title={downloading ? t.story.reader.pdf.building : t.journey.generated.downloadPdf}
             onClick={() => void onDownload()}
           >
@@ -470,8 +468,8 @@ export function ReaderScreen() {
         interrupts a screen reader — the other two are polite.
       */}
       {(pdfError ??
-        (pdfStarted ? t.story.reader.pdf.started : null) ??
-        (pack?.downloadHeld ? t.story.reader.pdf.held : null)) ? (
+      (pdfStarted ? t.story.reader.pdf.started : null) ??
+      (pack?.downloadHeld ? t.story.reader.pdf.held : null)) ? (
         <p
           className={`reader-bar-note${pdfError ? "" : " is-good"}`}
           role={pdfError ? "alert" : "status"}
