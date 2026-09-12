@@ -62,19 +62,18 @@ public class LegacyFulfillmentPressTests
     /// with it. The provenance is evidence for a person inspecting a physical proof, not a verdict.
     /// </summary>
     [Fact]
-    public async Task A_composer_enlarged_interior_reaches_the_print_slot_when_it_measures_correctly()
+    public async Task A_composer_enlarged_interior_keeps_passing_preflight_evidence_without_storing_the_pdf()
     {
         var world = new LegacyWorld { Interpolated = true };
 
         await world.Run();
 
         Assert.True(world.Packs.PrintPdfUrlWritten);
-        Assert.Equal(
-            $"https://blob.test/{BekiPackBlobs.InteriorPdfName(world.UserId, world.PackId)}",
-            world.Packs.PrintPdfUrl);
+        Assert.Null(world.Packs.PrintPdfUrl);
+        Assert.DoesNotContain(world.Blobs.Uploaded.Keys, name => name.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase));
 
         var reportName = BekiPackBlobs.InteriorPreflightName(world.UserId, world.PackId);
-        Assert.Contains(BekiPackBlobs.InteriorPdfName(world.UserId, world.PackId), world.Blobs.Uploaded.Keys);
+        Assert.DoesNotContain(BekiPackBlobs.InteriorPdfName(world.UserId, world.PackId), world.Blobs.Uploaded.Keys);
         Assert.Contains(reportName, world.Blobs.Uploaded.Keys);
 
         var reportJson = System.Text.Encoding.UTF8.GetString(world.Blobs.Uploaded[reportName]);
@@ -90,8 +89,10 @@ public class LegacyFulfillmentPressTests
         // The receipt still reached the stage and still names the resampler and the factor.
         Assert.Contains("lanczos3", reportJson, StringComparison.Ordinal);
 
-        // And the parent is untouched by any of it — the reading copy is published as always.
-        Assert.NotNull(world.Packs.PdfUrl);
+        // Reader content remains available; a stored PDF is no longer the completion signal.
+        Assert.Equal(AdventurePackStatus.Completed,
+            (await world.Packs.GetByIdNoOwnershipAsync(world.PackId, CancellationToken.None))!.Status);
+        Assert.Null(world.Packs.PdfUrl);
     }
 
     /// <summary>
@@ -99,16 +100,15 @@ public class LegacyFulfillmentPressTests
     /// asked, not a path being closed.
     /// </summary>
     [Fact]
-    public async Task An_interior_that_was_never_enlarged_still_reaches_the_print_slot()
+    public async Task An_interior_that_was_never_enlarged_keeps_passing_preflight_evidence_without_storing_the_pdf()
     {
         var world = new LegacyWorld { Interpolated = false };
 
         await world.Run();
 
         Assert.True(world.Packs.PrintPdfUrlWritten);
-        Assert.Equal(
-            $"https://blob.test/{BekiPackBlobs.InteriorPdfName(world.UserId, world.PackId)}",
-            world.Packs.PrintPdfUrl);
+        Assert.Null(world.Packs.PrintPdfUrl);
+        Assert.DoesNotContain(world.Blobs.Uploaded.Keys, name => name.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase));
 
         var reportName = BekiPackBlobs.InteriorPreflightName(world.UserId, world.PackId);
 

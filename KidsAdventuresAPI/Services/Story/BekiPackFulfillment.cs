@@ -672,7 +672,7 @@ public sealed class BekiPackFulfillment(
     {
         var pack = await packRepository.GetByIdNoOwnershipAsync(packId, cancellationToken)
             ?? throw new InvalidOperationException("Book not found.");
-        if (pack.Status == AdventurePackStatus.Completed && !string.IsNullOrWhiteSpace(pack.PdfUrl))
+        if (pack.Status == AdventurePackStatus.Completed)
             return;
         if (!bekiOptions.Value.CompositePipelineEnabled || orders is null
             || pack.Status != AdventurePackStatus.Failed
@@ -782,9 +782,10 @@ public sealed class BekiPackFulfillment(
                 ?? throw new InvalidOperationException("Recovered book not found.");
         }
 
-        if (pack.Status != AdventurePackStatus.Completed || string.IsNullOrWhiteSpace(pack.PdfUrl))
+        // Completed books keep artwork and receipts; PDF bytes are composed on demand.
+        if (pack.Status != AdventurePackStatus.Completed)
             throw new InvalidOperationException(
-                "Print re-preparation needs a completed book with a reading copy already published.");
+                "Print re-preparation needs a completed book with verified stored artwork.");
 
         /*
           The book's one lock, taken after the hand-off to recovery so the two cannot deadlock each

@@ -79,7 +79,7 @@ public class FastBookGenerationTests : CompositePipelineTestBase
         world.Composer.CanonicalPdf = BekiCanonicalBookFixtures.CanonicalScreenBook();
         await world.Job().ProcessAsync(world.PackId, world.RunId, CancellationToken.None);
         Assert.Equal(AdventurePackStatus.Completed, world.Packs.Status);
-        var readingName = BekiPackBlobs.ReadingPdfName(world.UserId, world.PackId);
+        var readingName = BekiPackBlobs.CanonicalIntegrityName(world.UserId, world.PackId);
         var reading = world.Blobs.Uploaded[readingName];
         var png = BasePng();
         var receipt = BekiGeneratedArtwork.Receipt(png, BekiGeneratedArtwork.Reference(), "spread.png");
@@ -91,6 +91,9 @@ public class FastBookGenerationTests : CompositePipelineTestBase
         await world.Job().RepreparePrintAsync(world.PackId, CancellationToken.None);
         Assert.True(world.Composer.LastPrepareForPrint);
         Assert.Equal(reading, world.Blobs.Uploaded[readingName]);
+        Assert.Null(world.Packs.PdfUrl);
+        Assert.Null(world.Packs.PrintPdfUrl);
+        Assert.DoesNotContain(world.Blobs.Uploaded.Keys, name => name.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase));
         using var prepared = JsonDocument.Parse(world.Blobs.Uploaded[
             $"{world.UserId}/{world.PackId}/print/spread-01-composition.json"]);
         Assert.False(prepared.RootElement.GetProperty("additional_beki_layer").GetBoolean());

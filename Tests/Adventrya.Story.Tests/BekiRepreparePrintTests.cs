@@ -72,14 +72,11 @@ public class BekiRepreparePrintTests
             world.Blobs.Uploaded[BekiPackBlobs.ReleaseGatesName(world.UserId, world.PackId)]))!;
         Assert.DoesNotContain(release.FailingGates, gate => gate.StartsWith("PRESS_", StringComparison.Ordinal));
         Assert.True(world.Packs.PrintPdfUrlWritten);
-        Assert.Equal(
-            release.PrintReady && release.CustomerPdfMayPublish
-                ? $"https://blob.test/{BekiPackBlobs.InteriorPdfName(world.UserId, world.PackId)}"
-                : null,
-            world.Packs.PrintPdfUrl);
+        Assert.Null(world.Packs.PrintPdfUrl);
+        Assert.DoesNotContain(BekiPackBlobs.InteriorPdfName(world.UserId, world.PackId), world.Blobs.Uploaded.Keys);
 
         Assert.Equal(previousPdf, world.Blobs.Uploaded[BekiPackBlobs.ReadingPdfName(world.UserId, world.PackId)]);
-        Assert.NotEqual(previousPdf, world.Blobs.Uploaded[BekiPackBlobs.InteriorPdfName(world.UserId, world.PackId)]);
+
 
         // The previous deliverables are kept, byte for byte, under a timestamped folder.
         var snapshot = world.Blobs.Uploaded.Keys
@@ -629,7 +626,7 @@ public class BekiRepreparePrintTests
     [Fact]
     public async Task A_failed_book_with_a_print_preflight_error_is_handed_to_recovery_and_finishes()
     {
-        var world = await HeldBookAsync();
+        var world = await HeldBookAsync(legacyStoredPdf: false);
         world.Composer.CanonicalPdf = BekiCanonicalBookFixtures.CanonicalPressBook();
         world.Packs.Force(AdventurePackStatus.Failed,
             "PRINT_PREFLIGHT_FAILED: the canonical PDF did not pass the mandatory production preflight.",
@@ -638,8 +635,8 @@ public class BekiRepreparePrintTests
         await world.Job().RepreparePrintAsync(world.PackId, CancellationToken.None);
 
         Assert.Equal(AdventurePackStatus.Completed, world.Packs.Status);
-        Assert.Equal($"https://blob.test/{BekiPackBlobs.ReadingPdfName(world.UserId, world.PackId)}",
-            world.Packs.PdfUrl);
+        Assert.Null(world.Packs.PdfUrl);
+        Assert.DoesNotContain(world.Blobs.Uploaded.Keys, name => name.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase));
 
         using var status = JsonDocument.Parse(Encoding.UTF8.GetString(
             world.Blobs.Uploaded[BekiPackBlobs.PressStatusName(world.UserId, world.PackId)]));
@@ -647,11 +644,8 @@ public class BekiRepreparePrintTests
 
         var release = BekiReleaseGateReport.TryParse(Encoding.UTF8.GetString(
             world.Blobs.Uploaded[BekiPackBlobs.ReleaseGatesName(world.UserId, world.PackId)]))!;
-        Assert.Equal(
-            release.PrintReady && release.CustomerPdfMayPublish
-                ? $"https://blob.test/{BekiPackBlobs.InteriorPdfName(world.UserId, world.PackId)}"
-                : null,
-            world.Packs.PrintPdfUrl);
+        Assert.Null(world.Packs.PrintPdfUrl);
+        Assert.DoesNotContain(BekiPackBlobs.InteriorPdfName(world.UserId, world.PackId), world.Blobs.Uploaded.Keys);
 
         // No open hold left behind: recovery closes what it fixed, exactly as re-preparation does.
         Assert.Contains(world.Alarms.Resolved, closed => closed.CheckId == "PRINT_PREPARATION_HELD");
@@ -949,9 +943,9 @@ public class BekiRepreparePrintTests
     /// Produced by running the real fulfilment job over the shared harness with the composer
     /// returning the book as it comes out of composition BEFORE normalization — screen-sized
     /// rasters on the locked sheets — so PRESS_RESOLUTION fails from measurement and the blocker is
-    /// raised. Nothing about the state is faked into storage.
+    /// raised. Legacy rollback cases explicitly seed the reading PDF older books retained.
     /// </summary>
-    private static async Task<CompositePipelineFulfillmentTests.PackWorld> HeldBookAsync()
+    private static async Task<CompositePipelineFulfillmentTests.PackWorld> HeldBookAsync(bool legacyStoredPdf = true)
     {
         var world = new CompositePipelineFulfillmentTests.PackWorld();
         world.Composer.CanonicalPdf = BekiCanonicalBookFixtures.CanonicalScreenBook();
@@ -961,6 +955,16 @@ public class BekiRepreparePrintTests
         Assert.Equal(AdventurePackStatus.Completed, world.Packs.Status);
         Assert.Null(world.Packs.PrintPdfUrl);
         Assert.DoesNotContain(world.Alarms.Raised, alarm => alarm.CheckId == "PRINT_PREPARATION_HELD");
+
+        if (legacyStoredPdf)
+        {
+            // Books created before on-demand PDFs can still have a saved reading copy.
+            // Preserve explicit coverage for snapshot/rollback of those legacy artifacts.
+            var name = BekiPackBlobs.ReadingPdfName(world.UserId, world.PackId);
+            world.Blobs.Seed(name, world.Composer.CanonicalPdf);
+            (await world.Packs.GetByIdNoOwnershipAsync(world.PackId, CancellationToken.None))!
+                .PdfUrl = $"https://blob.test/{name}";
+        }
 
         return world;
     }

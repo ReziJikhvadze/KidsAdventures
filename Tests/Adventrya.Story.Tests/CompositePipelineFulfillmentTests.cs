@@ -70,7 +70,7 @@ public class CompositePipelineFulfillmentTests
     [InlineData("alarm-unavailable")]
     [InlineData("print-status-unavailable")]
     [InlineData("waiver-alarm-unavailable")]
-    public async Task Print_only_failures_complete_the_customer_book_with_a_download(string failure)
+    public async Task Print_only_failures_complete_the_readable_book_without_storing_a_pdf(string failure)
     {
         var world = new PackWorld
         {
@@ -85,11 +85,9 @@ public class CompositePipelineFulfillmentTests
 
         Assert.Null(world.Packs.FailureReason);
         Assert.Equal(AdventurePackStatus.Completed, world.Packs.Status);
-        Assert.Equal($"https://blob.test/{BekiPackBlobs.ReadingPdfName(world.UserId, world.PackId)}",
-            world.Packs.PdfUrl);
+        Assert.Null(world.Packs.PdfUrl);
         Assert.Null(world.Packs.PrintPdfUrl);
-        Assert.Equal(world.Composer.CanonicalPdf,
-            world.Blobs.Uploaded[BekiPackBlobs.ReadingPdfName(world.UserId, world.PackId)]);
+        Assert.DoesNotContain(world.Blobs.Uploaded.Keys, name => name.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase));
         var release = BekiReleaseGateReport.TryParse(Encoding.UTF8.GetString(
             world.Blobs.Uploaded[BekiPackBlobs.ReleaseGatesName(world.UserId, world.PackId)]))!;
         Assert.True(release.CustomerPdfMayPublish);
