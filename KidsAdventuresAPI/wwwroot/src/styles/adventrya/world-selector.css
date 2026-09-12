@@ -1055,22 +1055,6 @@
   font-size: clamp(6px, 1.5vw, 9px);
 }
 
-.world-node.is-selected .world-label::after {
-  position: absolute;
-  top: -4px;
-  right: -4px;
-  display: grid;
-  width: 14px;
-  height: 14px;
-  place-items: center;
-  border-radius: 50%;
-  background: var(--gold);
-  color: #251342;
-  content: "✓";
-  font-size: 9px;
-  font-weight: 700;
-}
-
 /*
   Below the island, clear of its label — the same on all six.
 
@@ -1333,16 +1317,6 @@
 
 .mobile-frame .world-label small {
   display: none;
-}
-
-/* A 14px disc with a 9px glyph in it is a smudge at arm's length on a phone, and it is now one
-   of the three things saying which world is chosen. Two pixels each way is enough to read. */
-.mobile-frame .world-node.is-selected .world-label::after {
-  top: -6px;
-  right: -6px;
-  width: 17px;
-  height: 17px;
-  font-size: 11px;
 }
 
 .mobile-frame .world-label .world-title {
