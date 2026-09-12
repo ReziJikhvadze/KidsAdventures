@@ -411,6 +411,77 @@
     margin-top: 9px;
   }
 }
+
+/*
+  The same line, gone for the same reason, on the screen where it is worse.
+
+  The rule above drops the hint on a short laptop because it costs 30px the book needs. On a
+  phone it costs the same 30px and is not even read: the sticky call to action sits over the
+  foot of the hero below 900px, and at 320 and 375 the line lands underneath it - measured at
+  375x667, hint at y582 running to 599 with the bar starting at 590. Text printed under an
+  opaque bar is not a hint, and half of what it offers ("the arrow keys") is not something a
+  phone has.
+
+  The reader keeps its own copy of this line and it was made more readable, not less: there it
+  is the only instruction on the screen and there is nothing over it. Here the two buttons
+  directly beneath the book say the same thing, which is the argument the rule above already
+  makes.
+*/
+@media (max-width: 900px) {
+  .landing-v3-hero-product .storybook-gesture-hint {
+    display: none;
+  }
+}
+
+/*
+  Two buttons that turn a page, at the size of a thing that turns a page.
+
+  The narrow sheet lifts the hero's 98px cap and stretches both buttons to fill their tracks,
+  on the reasoning that "the row is already only as wide as the book". It is not: measured on
+  the real page the row is 288px against a 160px book at 320, and 398 against 215 at 430. So
+  the pair came out nearly twice the width of the thing it navigates - two dark slabs, 123 to
+  178px each, carrying one small chevron apiece, sitting under a book half their size and
+  reading as the loudest object in the hero.
+
+  Compact squares instead, at the 48px the reader already uses for the same pair, pulled toward
+  the middle so they flank the book rather than spanning the screen. The labels are hidden at
+  this width anyway, so there is nothing to clip; the target grows, if anything, from 45px tall
+  to 48 square.
+*/
+@media (max-width: 780px) {
+  /*
+    Three classes, and it needs all three. The narrow sheet sets the width and lifts the cap on
+    a two-class selector of its own, and that file is loaded after this one, so a rule of equal
+    weight here loses on source order and only the alignment below would have taken effect.
+  */
+  /*
+    The word goes with the width.
+
+    The shared sheet drops "წინა" and "შემდეგი" at 430 and below, and the square below is set
+    from 780 down - so between those two numbers the label was still being rendered into a box
+    48px wide and spilling out of it. Squaring the button is what created that gap, so the
+    label is hidden over exactly the range the square covers rather than the narrower one the
+    shared rule uses. Nothing is lost by it: the chevron says the same thing, the button keeps
+    its full name for a screen reader in `aria-label`, and on a wide screen both come back.
+  */
+  .landing-v3-hero .landing-v3-hero-product .storybook-controls button > span {
+    display: none;
+  }
+  .landing-v3-hero .landing-v3-hero-product .storybook-controls button {
+    width: 48px;
+    min-width: 48px;
+    max-width: 48px;
+    min-height: 48px;
+    padding: 0;
+  }
+  .landing-v3-hero-product .storybook-controls button:first-child {
+    justify-self: end;
+  }
+  .landing-v3-hero-product .storybook-controls button:last-child {
+    justify-self: start;
+  }
+}
+
 .landing-v3-book-stack {
   position: relative;
   width: min(72%, 430px);
@@ -1614,6 +1685,43 @@
 }
 .landing-v3-faq-heading h2 {
   font-size: clamp(26px, 9.3cqi, 56px);
+  /*
+    The guard, at every width. Georgian builds long compounds and this heading holds one -
+    "თავგადასავლამდე", fifteen characters with nowhere to break - so the default of never
+    splitting a word means the word simply leaves the box. It did: measured on the real page it
+    ran 38 to 57px past the right edge of the screen at all five phone widths, cut off mid-word.
+    This cannot fix the size, only the failure mode, and the size is handled below.
+  */
+  overflow-wrap: break-word;
+}
+
+/*
+  And on a phone it is set small enough not to need the guard.
+
+  9.3cqi puts this at 34px on a 320 screen and 43px on a 430 one, which is the largest type on
+  the page after the hero and is what pushed the longest word off the edge. Roughly a fifth off
+  brings the whole line inside the column at every width, so the word wraps at its space like
+  any other and the break-word above stays a safety net rather than the layout. The cap is a
+  flat 34px because past that the container query is no longer what is deciding.
+
+  Phones only: on a wide screen the container is wider, the same word fits comfortably, and the
+  heading keeps the size it was drawn at.
+*/
+@media (max-width: 780px) {
+  /*
+    Three classes, and the viewport rather than the container.
+
+    Two things had to change to make this take. An equal-weight rule cannot be relied on here -
+    the base above is `.landing-v3-faq-heading h2` and so was this - and the container unit is
+    not resolving against the box it looks like it should: 9.3cqi comes out at 37.5px on a 375
+    screen where the heading's own box is 335, which puts cqi at about 403 and means some other
+    ancestor is answering the query. Sizing against the viewport on phones sidesteps the
+    question, and on a phone the heading's column IS the screen minus its margins, so the two
+    are the same ruler anyway.
+  */
+  .landing-v3-faq .landing-v3-faq-heading h2 {
+    font-size: clamp(20px, 7.2vw, 32px);
+  }
 }
 .landing-v3-faq-heading > span {
   margin-left: 0;
@@ -1625,11 +1733,51 @@
 .landing-v3-faq-list {
   width: min(100%, 760px);
 }
-.landing-v3-faq-list details {
-  border-top: 1px solid rgba(55, 34, 95, 0.13);
+/*
+  Each question is a card, because each question is a button.
+
+  The row has always been the target - `summary` toggles wherever it is pressed, and a tap 12px
+  from the left edge opens the answer - but nothing said so. Six lines of type separated by
+  hairlines, on the page's own paper, with a 28px ring at 16% opacity on the end: the only mark
+  of interactivity was the ring, so the ring is what people aimed at, and on a phone that is a
+  28px target inside an 82px row that was already listening.
+
+  So the row is given the one thing it lacked: edges. Paper on paper, a visible border and a
+  radius, which is the same card the rest of this page uses for anything that can be pressed.
+  Not a primary button - no fill, no gold - because six of those stacked would shout over the
+  section they belong to. The intent is "this is an object you can press", not "press this".
+*/
+.landing-v3-faq-list {
+  display: grid;
+  gap: 10px;
 }
-.landing-v3-faq-list details:last-child {
-  border-bottom: 1px solid rgba(55, 34, 95, 0.13);
+.landing-v3-faq-list details {
+  border: 1px solid rgba(55, 34, 95, 0.16);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.55);
+  transition:
+    border-color 0.18s ease,
+    background 0.18s ease;
+}
+/*
+  Open, and it says so twice: the glyph is already a minus, and the card warms and firms up so
+  the answer underneath reads as part of the thing that was pressed rather than loose text.
+*/
+.landing-v3-faq-list details[open] {
+  border-color: rgba(55, 34, 95, 0.3);
+  background: var(--lv3-paper);
+}
+/* Pointer over it, or a thumb on it. */
+.landing-v3-faq-list details:hover {
+  border-color: rgba(55, 34, 95, 0.3);
+}
+.landing-v3-faq-list summary:active {
+  background: rgba(55, 34, 95, 0.045);
+}
+/* The keyboard's turn. `list-style: none` takes the marker and, with it, the default ring. */
+.landing-v3-faq-list summary:focus-visible {
+  outline: 2px solid var(--lv3-gold);
+  outline-offset: -3px;
 }
 .landing-v3-faq-list summary {
   min-height: 92px;
@@ -1637,6 +1785,8 @@
   grid-template-columns: 36px 1fr 30px;
   align-items: center;
   gap: 14px;
+  padding: 0 16px;
+  border-radius: 15px;
   color: var(--lv3-ink);
   cursor: pointer;
   list-style: none;
@@ -1653,26 +1803,52 @@
   font-family: var(--font-body);
   font-size: 11px;
 }
+/*
+  The sign, at a weight you can see.
+
+  It was a hairline ring at 16% with a 400-weight glyph inside - legible on a laptop screen at
+  arm's length and very nearly not there on a phone in daylight. It now carries the warm tone
+  the numbers down the left already use, so it belongs to this section rather than arriving
+  from somewhere else, and it is filled rather than outlined so it reads at a glance as the
+  control on the row.
+*/
 .landing-v3-faq-list summary > i {
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
   display: grid;
   place-items: center;
-  border: 1px solid rgba(55, 34, 95, 0.16);
+  border: 1px solid rgba(173, 121, 85, 0.4);
   border-radius: 50%;
+  color: #8d5c44;
+  background: rgba(173, 121, 85, 0.1);
   font-family: var(--font-body);
-  font-size: 15px;
+  font-size: 17px;
   font-style: normal;
-  font-weight: 400;
-  transition: transform 0.2s ease;
+  font-weight: 600;
+  line-height: 1;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease;
+}
+/* Open: the same mark, filled in, so the state reads from the sign as well as the answer. */
+.landing-v3-faq-list details[open] summary > i {
+  border-color: rgba(173, 121, 85, 0.62);
+  background: rgba(173, 121, 85, 0.2);
 }
 /* The glyph itself changes now; rotating it made a cross of it. */
 .landing-v3-faq-list details[open] summary > i {
   transform: none;
 }
+/*
+  The answer starts under the question, not under the number.
+
+  Its left margin was 50px, which is where the question text began when the row had no padding
+  of its own: the 36px number column plus the 14px gap. The card adds 16px either side, so the
+  question moved right and the answer did not. 66 is the same sum with the padding in it.
+*/
 .landing-v3-faq-list details > p {
   max-width: 630px;
-  margin: -12px 38px 30px 50px;
+  margin: -10px 22px 22px 66px;
   color: var(--lv3-muted);
   font-size: 12px;
   line-height: 1.75;

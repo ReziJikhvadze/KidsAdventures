@@ -1958,10 +1958,37 @@
     sentence is two lines (the first measures 16x its size, the gold one 24x at 0.86 of it), the
     headline is 120px tall, and the book starts above the middle of the first screen.
   */
+  /*
+    And four lines is what it now actually takes.
+
+    The arithmetic above was right about the type and wrong about the room: it sized the two
+    sentences against a 390px cap, and the column on a 375px phone is 339. So the gold sentence
+    needed three lines rather than two, and the headline came out five - "ბავშვის" alone,
+    "რომელიც" alone, two orphans in five lines. That is the awkward wrapping, and it is not a
+    font-size problem: at this size the words are the right size, they were being measured
+    against a width the page does not have.
+
+    Three changes, none of them shrinking the type.
+
+    `max-width: none` hands the heading its actual column instead of a cap the column is already
+    narrower than, which is what the cap was for on a wider phone and is where the fifth line
+    came from at 430.
+
+    `text-wrap: pretty` replaces the `balance` inherited from the base rule. Balance evens the
+    length of every line, which is right for a two-line desktop headline and wrong here: it is
+    what pulls a single word onto a line of its own rather than filling. Pretty fills the lines
+    and only intervenes to stop a last-line orphan.
+
+    And the tracking comes back from -0.045em, which is a display setting. Georgian is a
+    round-formed script with no capitals to close up, and at 28px that was taking 1.3px out of
+    every letter pair; -0.02em keeps the headline tight without pressing the glyphs together.
+  */
   .landing-v3-hero h1 {
-    max-width: 390px;
+    max-width: none;
     font-size: clamp(26px, 7.5vw, 32px);
-    line-height: 1.08;
+    line-height: 1.14;
+    letter-spacing: -0.02em;
+    text-wrap: pretty;
   }
   .landing-v3-hero h1 > span {
     white-space: normal;
