@@ -1581,3 +1581,10 @@
     transition: none;
   }
 }
+
+.journey-pdf-progress .journey-pdf-percent {
+  margin-left: 6px;
+  color: var(--gold, #f1c970);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}

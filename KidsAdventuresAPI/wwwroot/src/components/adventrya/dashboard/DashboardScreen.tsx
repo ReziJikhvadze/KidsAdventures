@@ -1348,7 +1348,14 @@ function BookCard({
 
         {pdfBusy ? (
           <div className="journey-pdf-progress" role="status" aria-live="polite">
-            <small>{pdfProgress.message || t.dashboard.library.pdfBusy}</small>
+            <small>
+              {pdfProgress.message || t.dashboard.library.pdfBusy}
+              {/* The number, from the number - not from whatever the server happened to write
+                  in its message. Suppressed when that message already carries one. */}
+              {pdfProgress.percent !== null && !/\d+\s*%/.test(pdfProgress.message ?? "") ? (
+                <b className="journey-pdf-percent">{pdfProgress.percent}%</b>
+              ) : null}
+            </small>
             <span
               className="journey-resume-bar"
               /* Indeterminate until the server names a number: a bar pinned at zero for a minute
