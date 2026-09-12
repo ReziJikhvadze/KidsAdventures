@@ -157,8 +157,9 @@ export function backHrefForStage(
     case "auth":
       return "/create#preview";
     case "checkout":
-      if (options.isPrintUpgrade) return originHref(options.cameFrom);
-      // Auth is skipped when already signed in; preview is the real prior step.
+      // Out to the screen that opened the journey, when one named itself. Only a parent who
+      // came in off the home page has no such screen; for them the preview is the prior step.
+      if (options.isPrintUpgrade || options.cameFrom) return originHref(options.cameFrom);
       return "/create#preview";
     default:
       return originHref(options.cameFrom);
