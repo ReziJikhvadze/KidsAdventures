@@ -1307,3 +1307,38 @@
     bottom: 14px;
   }
 }
+
+@media (max-width: 780px) {
+  /*
+    One control for leaving, and it is the parent's own.
+
+    The bar carried three icons and no words: a shelf, a spark and a download. The spark is
+    the world passport, whose label is hidden at this width, so what a parent saw was an
+    unexplained star beside an unexplained shelf. The passport keeps its place on wider
+    screens, where it is a labelled pill; here the only way out is the profile, and it goes
+    where a parent's own things are.
+  */
+  .reader-bar .reader-bar-end a.reader-bar-pill {
+    display: none;
+  }
+  /*
+    And the title stops being an ellipsis. A Georgian book title is a sentence - the one
+    measured here ran 365px into 191 - so one line was always going to cut it in half. Two
+    lines at 13px hold 316px of it inside a 56px bar that does not grow.
+  */
+  .reader-bar .reader-bar-title strong {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    font-size: 13px;
+    line-height: 1.16;
+    text-overflow: clip;
+    white-space: normal;
+    overflow-wrap: break-word;
+  }
+  .reader-bar .reader-bar-title small {
+    font-size: 9px;
+    letter-spacing: 0.1em;
+  }
+}

@@ -385,7 +385,7 @@ export const journey = {
   generating: {
     heading: "Being created now",
     /* Beki's last line, the one the checkout was leading to. */
-    bekiLine: "Your book is on its way!",
+    bekiLine: "We will send you a notification the moment the book is ready",
     failedTitle: "The book could not finish",
     failedBody:
       "The book generation was interrupted. We are already working on it. Nothing is lost.",
@@ -394,12 +394,11 @@ export const journey = {
     titleSuffix: "'s story, where the magic starts…",
     companionPrefix: "Rex opened the door to ",
     companionSuffix: "'s new world",
-    leaveNote: "Feel free to leave - we will email you as soon as the book is ready.",
     softTime: "Usually 5–10 minutes",
     stageLabel: "Step ",
     orderMissing: "The order could not be found.",
     /* See the note beside the Georgian string: this screen owns its own exit label now. */
-    stopWaiting: "Stop and go back",
+    stopWaiting: "Go to my space",
     toDashboard: "Go to the dashboard",
     pagesDrawn: "Pages drawn so far",
     pageAlt: (spread: number) => `Page ${spread}`,

@@ -1,4 +1,4 @@
-import { Download, Library, Loader2, Minus, Plus, Sparkles } from "lucide-react";
+import { CircleUserRound, Download, Loader2, Minus, Plus, Sparkles } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "@tanstack/react-router";
 
@@ -407,7 +407,7 @@ export function ReaderScreen() {
           title={t.story.reader.library.trim()}
           aria-label={t.story.reader.library.trim()}
         >
-          <Library aria-hidden="true" />
+          <CircleUserRound aria-hidden="true" />
         </Link>
         <span className="reader-bar-title">
           <small>{heroName}</small>

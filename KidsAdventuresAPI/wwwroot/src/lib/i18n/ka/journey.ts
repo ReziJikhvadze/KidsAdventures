@@ -450,7 +450,7 @@ export const journey = {
   generating: {
     heading: "ახლა იქმნება",
     /* Beki's last line, the one the checkout was leading to. */
-    bekiLine: "წიგნი გზაშია!",
+    bekiLine: "წიგნი როცა შეიქმნება, შეტყობინებას გამოგიგზავნით",
     failedTitle: "წიგნი ვერ შეიქმნა",
     failedBody:
       "წიგნის შექმნა შეწყდა. ჩვენ უკვე ვმუშაობთ პრობლემის მოსაგვარებლად. არაფერი დაკარგულა.",
@@ -459,7 +459,6 @@ export const journey = {
     titleSuffix: "ს ამბავში მაგია იწყება...",
     companionPrefix: "რექსმა ",
     companionSuffix: "ს ახალი სამყაროს კარი გაიღო",
-    leaveNote: "შეგიძლია თავისუფლად გახვიდე - წიგნის მზადებისას ელფოსტასაც გამოგიგზავნით.",
     /* A Beki book is nine paintings and a print-ready file; a minute was never true. */
     softTime: "ჩვეულებრივ 5–10 წუთი",
     stageLabel: "ნაბიჯი ",
@@ -472,7 +471,7 @@ export const journey = {
       questions, while a paid book is being drawn on the server for minutes and the parent's
       place to wait is the cabinet, not the step before.
     */
-    stopWaiting: "შეაჩერე და დაბრუნდი",
+    stopWaiting: "გადადი ჩემ სივრცეში",
     toDashboard: "დაფაზე გადასვლა",
     pagesDrawn: "დახატული გვერდები",
     pageAlt: (spread: number) => `გვერდი ${spread}`,

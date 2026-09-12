@@ -305,7 +305,6 @@ export function GeneratingStage({ draft, onChange }: Props) {
           {heroName}
           {t.journey.generating.titleSuffix}
         </h1>
-        <p>{t.journey.generating.leaveNote}</p>
 
         {/*
           The real number, when the job reports one. A bar that fills on a timer is a promise

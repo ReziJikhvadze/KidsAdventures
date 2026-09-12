@@ -18,8 +18,23 @@
   .storybook-thumbnail .storybook-volume {
     width: 72px;
   }
+  /*
+    Sized against the board, not the window.
+
+    7.1vw is 27px on any phone whatever the board is, and the box it has to fit inside is
+    38% of the board's height - 120px here. A three-line Georgian title at 27px is 138 and
+    the rule above clips it, so the last line of the book's own name was cut off on its own
+    cover. The cover is an inline-size container already, which is what the mark on the same
+    board is sized from.
+  */
+  /* 38% of the board held 91px and a three-line Georgian title needs 103. */
+  .storybook-cover-copy {
+    max-height: 46%;
+  }
   .storybook-cover-copy h2 {
-    font-size: clamp(20px, 7.1vw, 27px);
+    font-size: clamp(14px, 7.2cqi, 27px);
+    line-height: 1.1;
+    overflow-wrap: break-word;
   }
   .storybook-page-copy > p {
     font-size: clamp(10px, 3.2vw, 12px);

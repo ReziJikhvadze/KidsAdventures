@@ -413,7 +413,7 @@
 .storybook-back-glow {
   position: absolute;
   z-index: 0;
-  top: 2%;
+  top: 4%;
   left: 50%;
   width: 82%;
   height: 56%;
@@ -448,11 +448,12 @@
 .storybook-back-guide {
   position: absolute;
   z-index: 0;
-  top: 7%;
+  /* Below the mark, not over it: he covered 18 of its 22 pixels. */
+  top: 14%;
   left: 50%;
   width: auto;
   max-width: 62%;
-  height: 46%;
+  height: 36%;
   transform: translateX(-50%);
   object-fit: contain;
   pointer-events: none;
@@ -1444,4 +1445,21 @@
   .landing-v3-hero-product .storybook-controls {
     grid-template-columns: 1fr 30px 1fr;
   }
+}
+
+/*
+  The hint, at a weight a parent can actually read.
+
+  Cream at 56% measured well against the reader's own near-black, but the line does not sit
+  on that: it sits under the board, over the lit haze the book throws, and against that it
+  washed out. The shadow is what fixes it - the ink is darker than the haze behind it either
+  way - and the extra alpha is so the letters keep their edges at 12px.
+*/
+.storybook-full .storybook-gesture-hint {
+  color: #fff8ebd6;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  line-height: 1.4;
+  text-shadow: 0 1px 6px rgba(6, 3, 20, 0.9);
 }

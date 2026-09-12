@@ -5,6 +5,7 @@ using Stripe;
 using Stripe.Checkout;
 
 using AdventurePacks.Api.Configuration.Options;
+using AdventurePacks.Api.DTOs.AdventurePacks;
 using AdventurePacks.Api.DTOs.Orders;
 using AdventurePacks.Api.DTOs.Print;
 using AdventurePacks.Api.Repositories.Interfaces;
@@ -1112,7 +1113,6 @@ public sealed class OrderService(
                 response.ProgressPercent = book.ProgressPercent;
                 response.PackStatus = book.Status.ToString();
                 response.HeartbeatUtc = book.GenerationHeartbeatUtc;
-                response.Title = NullIfBlank(book.Title);
                 response.WorldId = NullIfBlank(book.WorldId);
                 /*
                   The cover the parent chose, until the book has one of its own.
@@ -1128,9 +1128,21 @@ public sealed class OrderService(
                   cover at a storage path this account may read. It is a stand-in and is
                   dropped the moment the book has its own, which is why it is read second.
                 */
-                response.CoverImageUrl =
-                    NullIfBlank(book.CoverImageUrl)
-                    ?? await PreviewCoverAsync(order, cancellationToken);
+                var preview = await PreviewFacetsAsync(order, cancellationToken);
+                response.CoverImageUrl = NullIfBlank(book.CoverImageUrl) ?? preview.CoverImageUrl;
+
+                /*
+                  The title the parent was shown, until the book has written its own.
+
+                  The pack is enqueued with the world's formula title, and the pipeline replaces
+                  it with the story's later. Reading the pack's column throughout meant the
+                  generating screen named the book something the parent had never seen, beside
+                  the cover from the preview run - two halves of two different books. Same rule
+                  as the cover above, and the finished book still wins the moment it is ready.
+                */
+                response.Title = response.BookReady
+                    ? NullIfBlank(book.Title) ?? preview.Title
+                    : preview.Title ?? NullIfBlank(book.Title);
                 response.ChildName = await HeroNameAsync(book.PrimaryCharacterId, order.UserId, cancellationToken);
 
                 /*
@@ -1214,23 +1226,45 @@ public sealed class OrderService(
     /// The cover of the preview this order was placed from, or null when there is no run to ask,
     /// the run has expired, or it never held one.
     /// </summary>
-    private async Task<string?> PreviewCoverAsync(Order order, CancellationToken cancellationToken)
+    private async Task<(string? Title, string? CoverImageUrl)> PreviewFacetsAsync(
+        Order order,
+        CancellationToken cancellationToken)
     {
         if (TryReadDraft(order)?.PreviewBookId is not { } runId)
         {
-            return null;
+            return (null, null);
         }
 
         try
         {
             var run = await masterStoryRunRepository.GetByIdAsync(runId, cancellationToken);
-            return NullIfBlank(run?.CoverImageUrl);
+            if (run is null)
+            {
+                return (null, null);
+            }
+
+            /* The run has no title column; the rendered story it already holds does. */
+            string? title = null;
+            if (!string.IsNullOrWhiteSpace(run.ContentJson))
+            {
+                try
+                {
+                    var content = JsonSerializer.Deserialize<AdventureContentDto>(run.ContentJson, JsonOptions);
+                    title = NullIfBlank(content?.Title);
+                }
+                catch (JsonException)
+                {
+                    /* An unreadable story is one missing title, not a failed status poll. */
+                }
+            }
+
+            return (title, NullIfBlank(run.CoverImageUrl));
         }
         catch (Exception ex)
         {
             /* A missing stand-in is a worse picture, never a failed status poll. */
-            logger.LogDebug(ex, "Preview cover for order {OrderId} could not be read.", order.Id);
-            return null;
+            logger.LogDebug(ex, "Preview facets for order {OrderId} could not be read.", order.Id);
+            return (null, null);
         }
     }
 
