@@ -1098,7 +1098,7 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     /// document, not a second render.
     /// </summary>
     private static byte[] RimCoverTitle(byte[] pdf, double widthPt) =>
-        widthPt > 0d ? BekiTitleOutline.Apply(pdf, TextOutlineInk, widthPt) : pdf;
+        BekiTitleOutline.Apply(pdf, TextOutlineInk, widthPt);
 
     /// <summary>
     /// The pen the press cover's title is stroked with, in points, for a title set at
@@ -3672,8 +3672,8 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
         // The cut goes on as a default rather than on the run: QuestPDF exposes family, size,
         // leading and colour on a text block and the weight only on a style, and a default the
         // block does not override is the same thing said in the place the API keeps it.
-        // Ottia has one cut. Skia embeds its synthesized bold as vector Type 3 glyphs;
-        // BekiTitleOutline preserves that weight when adding the cover's fine dark edge.
+        // Ottia has one cut. Shape its synthetic bold here; BekiTitleOutline preserves
+        // that weight and placement, then exports ordinary paths instead of Type 3 fonts.
         weight ??= fontFamily == PdfFontBootstrap.TitleFamily ? FontWeight.Bold : null;
         var target = weight is { } cut
             ? container.DefaultTextStyle(style => style.Weight(cut))

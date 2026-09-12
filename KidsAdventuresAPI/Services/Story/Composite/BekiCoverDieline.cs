@@ -158,11 +158,11 @@ public static class BekiCoverDieline
     public const float TitleSafeTopMm = 162f;
     public const float TitleSafeHeightMm = 46f;
 
-    /// <summary>Visible artwork bounds, 20 mm inward from the physical top/right folds.</summary>
-    public const float LogoWidthMm = 39.6f; // Owner update: 10% larger, same physical fold clearance.
-    public const float LogoRightMm = FrontBoardRightMm - 20f;
-    public const float LogoLeftMm = LogoRightMm - LogoWidthMm;
-    public const float LogoTopMm = BoardTopMm + 20f;
+    /// <summary>Visible artwork bounds measured from the full wrap's upper-left corner.</summary>
+    public const float LogoWidthMm = 30f; // 2026-09-13: owner accepted proportional height of 10.66 mm.
+    public const float LogoRightMm = LogoLeftMm + LogoWidthMm;
+    public const float LogoLeftMm = 284.5f;
+    public const float LogoTopMm = 35f;
     public const float LogoHeightMm = (float)(LogoWidthMm * Pdf.BekiVectorLogo.VisibleHeight / Pdf.BekiVectorLogo.VisibleWidth);
     public const float LogoClearSpaceMm = 8f;
 
@@ -215,7 +215,7 @@ public static class BekiCoverDieline
         TITLE: x={TitleSafeLeftMm}..{TitleSafeLeftMm + TitleSafeWidthMm}, y={TitleSafeTopMm}..{TitleSafeTopMm + TitleSafeHeightMm}.
         Keep the child's entire face, head, hairline, eyes and expression above this lower title band. Keep other characters and prominent accent details outside this area. Use only naturally calm low-detail atmosphere behind the future title.
         LOGO: visible artwork x={LogoLeftMm}..{LogoRightMm}, y={LogoTopMm}..{LogoTopMm + LogoHeightMm}; reserve {LogoClearSpaceMm} mm additional clear space around it.
-        Keep this upper-right area calm and dark enough for the official solid-white logo to remain clearly visible. Do not draw the logo or any lettering. Do not draw borders, bands, blank panels or fold marks.
+        Keep this upper-left area of the front board calm and dark enough for the official solid-white logo to remain clearly visible. Do not draw the logo or any lettering. Do not draw borders, bands, blank panels or fold marks.
         """);
 
     public static readonly CompositeCoverGeometry Geometry = new(

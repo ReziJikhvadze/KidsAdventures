@@ -31,7 +31,7 @@ public class BekiRenderValidationTests
     private const string LockedDestination = "https://beki.ge";
 
     [SkippableFact]
-    public void Bold_cover_passes_render_back_when_server_Poppler_reports_an_unnamed_Type3_font()
+    public void Legacy_bold_text_passes_render_back_when_server_Poppler_reports_an_unnamed_Type3_font()
     {
         Skip.If(OperatingSystem.IsWindows(), "the font-table stub is a shell script.");
         Skip.IfNot(PopplerInstalled(), "Poppler is required for the actual PDF render.");
@@ -74,9 +74,16 @@ public class BekiRenderValidationTests
 
     private static (byte[] Pdf, int Object, int Generation) BoldCover(string? defect = null)
     {
-        var composed = new BekiPdfComposer(Options.Create(BekiLayoutFixture.ScreenProofLayout()))
-            .ComposeCoverPressWithReceipts("ნინო და მოჯადოებული ტყე", BekiLayoutFixture.SheetPng((180, 170, 160)));
-        using var stream = new MemoryStream(composed.Pdf);
+        // Keep testing old stored Type 3 documents without asking the current cover exporter
+        // to produce a font that the owner now explicitly forbids on new covers.
+        PdfFontBootstrap.EnsureRegistered();
+        var pdf = Document.Create(container => container.Page(page =>
+        {
+            page.Size(512, 245, Unit.Millimetre);
+            page.Content().Text("ნინო და მოჯადოებული ტყე")
+                .FontFamily(PdfFontBootstrap.TitleFamily).Bold().FontSize(32);
+        })).GeneratePdf();
+        using var stream = new MemoryStream(pdf);
         using var document = PdfReader.Open(stream, PdfDocumentOpenMode.Modify);
         var font = Assert.Single(document.Internals.GetAllObjects().OfType<PdfDictionary>(),
             item => item.Elements.GetName("/Subtype") == "/Type3");

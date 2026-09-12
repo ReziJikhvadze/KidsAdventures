@@ -16,7 +16,7 @@ public class BekiCoverLayoutSafetyTests
 
     [Theory]
     [InlineData(350, 170, "TITLE")]
-    [InlineData(437, 42, "LOGO")]
+    [InlineData(290, 35, "LOGO")]
     public void A_known_head_collision_is_refused(double x, double y, string region)
     {
         var failure = Assert.Throws<BekiLayoutException>(() => BekiCoverLayoutSafety.EnsureClear([Head(x, y)]));

@@ -13,18 +13,16 @@ namespace Adventrya.Story.Tests;
 public class BekiSeptemberScopeTests
 {
     [Fact]
-    public void Larger_white_logo_keeps_exact_fold_clearance_and_title_clear_space()
+    public void White_logo_uses_the_owner_approved_full_wrap_coordinates_and_proportions()
     {
-        Assert.Equal(20f, BekiCoverDieline.LogoTopMm - BekiCoverDieline.BoardTopMm);
-        Assert.Equal(20f, BekiCoverDieline.FrontBoardRightMm - BekiCoverDieline.LogoRightMm);
-        Assert.Equal(432.4f, BekiCoverDieline.LogoLeftMm, 3);
-        Assert.Equal(40f, BekiCoverDieline.LogoTopMm);
-        Assert.Equal(36f * 1.1f, BekiCoverDieline.LogoWidthMm, 3);
-        Assert.InRange(BekiCoverDieline.LogoHeightMm, 14.070f, 14.071f);
-        Assert.True(BekiCoverDieline.TitleSafeLeftMm + BekiCoverDieline.TitleSafeWidthMm
-            <= BekiCoverDieline.LogoLeftMm - BekiCoverDieline.LogoClearSpaceMm);
-        Assert.Contains("face, head, hairline, eyes", BekiCoverDieline.Geometry.PanelInstructions);
-        Assert.Contains("432.4..472", BekiCoverDieline.Geometry.PanelInstructions);
+        Assert.Equal(284.5f, BekiCoverDieline.LogoLeftMm);
+        Assert.Equal(35f, BekiCoverDieline.LogoTopMm);
+        Assert.Equal(30f, BekiCoverDieline.LogoWidthMm);
+        Assert.Equal(314.5f, BekiCoverDieline.LogoRightMm);
+        Assert.InRange(BekiCoverDieline.LogoHeightMm, 10.659f, 10.660f);
+        Assert.True(BekiCoverDieline.LogoTopMm + BekiCoverDieline.LogoHeightMm
+            + BekiCoverDieline.LogoClearSpaceMm < BekiCoverDieline.TitleSafeTopMm);
+        Assert.Contains("284.5..314.5", BekiCoverDieline.Geometry.PanelInstructions);
         Assert.Contains("solid-white logo", BekiCoverDieline.Geometry.PanelInstructions);
     }
 

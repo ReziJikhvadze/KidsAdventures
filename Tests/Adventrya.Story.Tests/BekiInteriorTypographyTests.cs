@@ -378,7 +378,8 @@ public class BekiInteriorTypographyTests
     private static IReadOnlyList<byte[]> RenderFixtureBook() => BekiLayoutFixture.ScreenProofPages();
 
     private static bool IsCream(Rgba32 pixel)
-        => pixel.R > 180 && pixel.G > 190 && pixel.B > 160;
+        // 60% cream over the fixture's (0, 200, 120) art is approximately (153, 229, 189).
+        => Math.Abs(pixel.R - 153) < 8 && Math.Abs(pixel.G - 229) < 8 && Math.Abs(pixel.B - 189) < 8;
 
     private static bool IsStoryInk(Rgba32 pixel)
         => pixel.R < 90 && pixel.G < 80 && pixel.B < 120;

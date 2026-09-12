@@ -154,7 +154,7 @@ public class BekiCoverTitlePlacementTests
 
         // A box in the same row, pushed right until it reaches under the mark.
         Assert.True(BekiCoverTitlePlacement.TouchesLogo(
-            340f, BekiCoverDieline.LogoTopMm,
+            BekiCoverDieline.LogoLeftMm, BekiCoverDieline.LogoTopMm,
             BekiCoverDieline.TitleSafeWidthMm, BekiCoverDieline.TitleSafeHeightMm));
     }
 
@@ -438,7 +438,7 @@ public class BekiCoverTitlePlacementTests
 
         // A head recorded inside the approved box is no longer a conflict once the title has moved
         // below it — and the same verdict must come out of the record as out of the live choice.
-        var head = new BekiCoverProtectedArea("head", "the child's head", 300, 30, 60, 50);
+        var head = new BekiCoverProtectedArea("head", "the child's head", 350, 70, 60, 50);
         Assert.Empty(BekiCoverLayoutSafety.Conflicts([head], read));
         Assert.Empty(BekiCoverLayoutSafety.Conflicts([head]));
     }

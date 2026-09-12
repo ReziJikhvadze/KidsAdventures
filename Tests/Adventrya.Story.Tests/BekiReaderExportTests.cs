@@ -271,8 +271,8 @@ public class BekiReaderExportTests
         var reading = ComposeReading();
         var layout = ReadingLayout();
 
-        // The September 4 local cream wash at 86%, spelled as QuestPDF's ARGB value.
-        const string PanelInk = "#DBFFF8EB";
+        // The September 4 local cream wash at 60%, spelled as QuestPDF's ARGB value.
+        const string PanelInk = "#99FFF8EB";
 
         var copyPages = reading.Receipts.Pages
             .Where(page => page.Role == "intro" || page.Role.StartsWith("spread-"))

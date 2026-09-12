@@ -77,7 +77,7 @@ public static class FastPreviewPlan
         Do not imitate varnish or generate a varnish mask.
         {BekiCoverDieline.PanelInstructions}
         {BekiCoverDieline.ReservedArtworkInstructions}
-        Reserve the lower-left area of the FRONT board for the title, and its upper-right area for the white logo.
+        Reserve the lower-left area of the FRONT board for the title, and its upper-left area for the white logo.
         Leave a natural clear area for a separate Beki PNG on the right, centred at 87% of the full canvas width and 45% of its height,
         occupying 30% of the full canvas height. Keep the child and important details outside that area.
         The back is environment only. Keep faces, hands and important objects away from spine, hinges and folds.

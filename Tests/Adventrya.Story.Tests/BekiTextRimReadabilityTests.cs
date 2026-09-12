@@ -84,7 +84,7 @@ public class BekiTextRimReadabilityTests(ITestOutputHelper output)
         var image = StorySpread(Default);
 
         Assert.Equal("FFF8EB", layout.StoryPanelInkHex);
-        Assert.Equal(0.86f, layout.StoryPanelOpacity);
+        Assert.Equal(0.60f, layout.StoryPanelOpacity);
         Assert.Equal(0f, layout.TextOutlineWidth);
         Assert.True(DarkPixels(image) > 0, "The dark story glyphs were not rendered on the cream wash.");
     }
@@ -225,7 +225,7 @@ public class BekiTextRimReadabilityTests(ITestOutputHelper output)
         // The fourth ruling's panel: the page's own plum, sixty per cent, the wash's reach and
         // corner. "Transparent-like, but not too transparent."
         Assert.Equal("FFF8EB", layout.StoryPanelInkHex);
-        Assert.Equal(0.86f, layout.StoryPanelOpacity);
+        Assert.Equal(0.60f, layout.StoryPanelOpacity);
         Assert.Equal(7f, layout.WashPaddingMm);
         Assert.Equal(4f, layout.WashCornerRadiusMm);
     }

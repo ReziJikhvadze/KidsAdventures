@@ -105,10 +105,10 @@ public sealed class BekiPrintLayoutOptions
     /// How opaque that panel is, 0–1. Zero draws no panel at all and is the pre-ruling book; one is
     /// an opaque box, which the ruling equally does not want ("transparent-like").
     ///
-    /// 0.86 keeps the wash visibly cream on both light and dark art while allowing the illustration
-    /// to remain present. Clamped to 0–1 wherever it is read.
+    /// The 2026-09-13 owner update reduces opacity from 0.86 to 0.60 so more illustration
+    /// remains visible. Clamped to 0–1 wherever it is read.
     /// </summary>
-    public float StoryPanelOpacity { get; set; } = 0.86f;
+    public float StoryPanelOpacity { get; set; } = 0.60f;
 
     /// <summary>
     /// The largest linear resize <see cref="Services.Story.BekiPdfComposer"/> may perform on its way
@@ -209,8 +209,8 @@ public sealed class BekiPrintLayoutOptions
     /// Cream (<c>#FFF8EB</c>) Ottia straight onto a pale sky is a title nobody can read, and the
     /// previous answer — the same glyphs painted sixteen more times on a small circle — is the exact
     /// treatment the supplier's <c>SINGLE_TEXT_LAYER</c> gate refuses. So the cover title is set
-    /// once, in one text object, in PDF text rendering mode 2: fill AND stroke, from the one set of
-    /// glyphs (<see cref="Services.Story.BekiTitleOutline"/>).
+    /// once, then its shaped glyphs are filled and stroked as native paths without a live font
+    /// (<see cref="Services.Story.BekiTitleOutline"/>).
     ///
     /// The bold cover title uses a 1.5 pt pen at the reference 36 pt size. The stroke is painted
     /// before the synthesized bold glyph's fill so it cannot eat into the cream letter or expose

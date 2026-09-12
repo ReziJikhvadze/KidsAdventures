@@ -8,31 +8,8 @@ using PdfSharp.Pdf.IO;
 namespace AdventurePacks.Api.Services.Story;
 
 /// <summary>
-/// The rim on the cover title, as a real stroked outline rather than a stack of offset copies.
-///
-/// Owner ruling 2026-09-01, rule 3 — "text must have a STRONGER border so it is readable on all
-/// backgrounds; when in doubt thicken the rim" — and the feedback that reopened it: cream
-/// (<c>#FFF8EB</c>) Ottia straight onto a pale sky is a title nobody can read. The rim it asks for
-/// used to be drawn by painting the same glyphs sixteen more times on a small circle, which the
-/// supplier's <c>SINGLE_TEXT_LAYER</c> gate now refuses by name, so
-/// <see cref="BekiPdfComposer"/> was left setting the title with no border at all.
-///
-/// PDF has had the right answer since 1.0 and QuestPDF simply cannot ask for it: text rendering
-/// mode 2 fills the glyph AND strokes its outline, from one text object and one set of glyphs. So
-/// the treatment is applied where the plumbing to apply it already exists — after QuestPDF is
-/// finished, on the finished page, exactly as <see cref="BekiVectorLogo"/> puts the approved logo
-/// on as native paths. The title's text object is wrapped in <c>q … Q</c> and given
-/// <c>2 Tr</c>, a pen width, the rim ink and round joins and caps; nothing inside the object moves,
-/// and the state cannot leak past the <c>Q</c>.
-///
-/// Two properties of that treatment are what make it shippable where the offset stack was not:
-///
-/// * <b>One text layer.</b> The glyphs are shown once. <c>SINGLE_TEXT_LAYER</c> counts text-showing
-///   operators and finds exactly what the layout receipt budgeted.
-/// * <b>The fill is untouched.</b> <c>2 Tr</c> strokes in ADDITION to filling, and the fill colour
-///   in force is still the cream QuestPDF authored — which is the colour
-///   <c>TEXT_COLOR_INTEGRITY</c> reads out of the content stream. A rim that had replaced the fill
-///   would have hidden audit P0-07's defect instead of the previous rim's.
+/// Preserves QuestPDF's shaped Ottia title, adds its dark rim, then expands the glyphs to
+/// native PDF paths. The exported cover contains no live font, including Type 3 fonts.
 /// </summary>
 public static class BekiTitleOutline
 {
@@ -48,7 +25,7 @@ public static class BekiTitleOutline
     public const string TitleFaceFileName = "Ottia-v01-Regular.ttf";
 
     /// <summary>
-    /// Strokes the cover title on page 1 of <paramref name="pdf"/> and returns the new document.
+    /// Outlines the cover title on page 1 of <paramref name="pdf"/> and returns the new document.
     ///
     /// Fails closed. A cover page with no title set in the licensed face is not a cover this method
     /// should quietly hand back unchanged — it is either a layout that stopped using the face or a
@@ -62,11 +39,6 @@ public static class BekiTitleOutline
     public static byte[] Apply(byte[] pdf, string outlineInkHex, double strokeWidthPt)
     {
         ArgumentNullException.ThrowIfNull(pdf);
-
-        if (!(strokeWidthPt > 0d))
-        {
-            return pdf;
-        }
 
         using var input = new MemoryStream(pdf);
         using var document = PdfReader.Open(input, PdfDocumentOpenMode.Modify);
@@ -86,7 +58,9 @@ public static class BekiTitleOutline
         // and close in the next: the array is a single stream cut into pieces, and the graphics
         // state this walks does not restart at the cuts.
         var content = Encoding.Latin1.GetString(page.Contents.CreateSingleContent().Stream.UnfilteredValue);
-        var stroked = Stroke(content, titleFonts, Ink(outlineInkHex), strokeWidthPt, page);
+        var stroked = strokeWidthPt > 0d
+            ? Stroke(content, titleFonts, Ink(outlineInkHex), strokeWidthPt, page)
+            : content;
 
         if (stroked is null)
         {
@@ -102,6 +76,7 @@ public static class BekiTitleOutline
         // either way. The objects left behind are unreferenced and do not reach the saved file.
         page.Contents.Elements.Clear();
         page.Contents.AppendContent().CreateStream(Encoding.Latin1.GetBytes(stroked));
+        BekiTitlePaths.Expand(page, titleFonts);
 
         using var output = new MemoryStream();
         document.Save(output);

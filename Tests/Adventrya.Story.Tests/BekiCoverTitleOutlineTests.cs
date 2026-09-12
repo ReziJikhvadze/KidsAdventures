@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
 using AdventurePacks.Api.Configuration.Options;
@@ -16,80 +15,33 @@ using Xunit;
 
 namespace Adventrya.Story.Tests;
 
-/// <summary>
-/// The cover title has a real border again.
-///
-/// The owner's complaint on 2026-09-06 is the one ruling 2026-09-01's third already answered and
-/// the September gates then took away: cream (<c>#FFF8EB</c>) Ottia sits on a pale sky and the book's
-/// own name cannot be read on its own cover. The rim it used to have was sixteen offset copies of
-/// the same glyphs, which <c>SINGLE_TEXT_LAYER</c> now refuses by name — so
-/// <see cref="BekiPdfComposer"/> was shipping a title with no rim at all and no gate could tell.
-///
-/// <see cref="BekiTitleOutline"/> puts it back the way PDF has always drawn rims: text rendering
-/// mode 2, one text object, one set of glyphs, filled AND stroked. Four things have to hold at once
-/// for that to be the answer rather than another trade, and each has a test here — the operators are
-/// in the file, no other page acquired them, the pixels show a dark ring around cream letters, and
-/// the two preflight gates that killed the previous treatment both still pass.
-/// </summary>
 public class BekiCoverTitleOutlineTests
 {
-    /// <summary>The rim ink, <c>#0D071D</c>, as the three operands a content stream carries.</summary>
     private const string OutlineInkOperands = "0.05098 0.027451 0.113725";
-
-    /// <summary>
-    /// A twelve-page canonical book, composed once: the cover, the endpaper, the intro, eight story
-    /// spreads and the credits. Composing it is the expensive part of every test in this file and
-    /// none of them changes it.
-    /// </summary>
     private static readonly Lazy<BekiComposedBook> Canonical = new(() => ComposeCanonical());
 
     // ==============================================================================================
     // The operators
     // ==============================================================================================
-
-    /// <summary>
-    /// Page 1's title is filled and stroked from the text objects QuestPDF already wrote.
-    ///
-    /// Every clause of the treatment is asserted separately, because each of them is load bearing:
-    /// <c>2 Tr</c> is fill-and-stroke rather than stroke-only (which would have thrown the cream
-    /// away and taken <c>TEXT_COLOR_INTEGRITY</c>'s evidence with it), the pen is the configured
-    /// width, the ink is the rim's and not the fill's, and round joins and caps are what keep a
-    /// Georgian letter's corners from growing spikes at the weight the owner asked for.
-    ///
-    /// The count is the single-layer contract restated in the file itself: as many stroked states as
-    /// there are text objects, and the glyphs shown once inside them.
-    /// </summary>
     [Fact]
-    public void The_cover_title_is_stroked_and_filled_from_one_text_object_per_line()
+    public void The_cover_title_is_filled_paths_without_any_font_or_text_operator()
     {
-        var content = PageContent(Canonical.Value.Pdf, 1);
-
-        Assert.Contains("2 Tr", content, StringComparison.Ordinal);
-        Assert.Contains(
-            $"2 Tr {Pen(new BekiPrintLayoutOptions().CoverTitleOutlineWidthPt * 32f / 36f)} w "
-            + $"{OutlineInkOperands} RG 1 j 1 J",
-            content,
-            StringComparison.Ordinal);
-
-        // The wrap's title breaks over two lines, and Skia writes one text object per line.
-        var textObjects = Operators(content, "BT");
-        Assert.Equal(2, textObjects);
-        Assert.Equal(textObjects, Operators(content, "Tr"));
-        Assert.Equal(textObjects, Operators(content, "ET"));
-
-        // The fill is exactly what the layout authored. A rim that had replaced it would read as a
-        // pass to the colour gate while printing a title nobody can see — audit P0-07's own shape.
-        Assert.Contains("1 .9725 .9216 rg", content, StringComparison.Ordinal);
+        var pdf = Canonical.Value.Pdf;
+        var content = PageContent(pdf, 1);
+        Assert.Equal(0, Operators(content, "BT"));
+        Assert.Equal(0, Operators(content, "Tj"));
+        Assert.Equal(0, Operators(content, "TJ"));
+        Assert.Equal(0, Operators(content, "Tr"));
+        Assert.True(Operators(content, "m") > 20);
+        Assert.True(Operators(content, "f") > 10);
+        Assert.Contains(OutlineInkOperands + " RG", content);
+        using var input = new MemoryStream(pdf);
+        using var document = PdfReader.Open(input, PdfDocumentOpenMode.Import);
+        Assert.Null(document.Pages[0].Elements.GetDictionary("/Resources")?.Elements.GetDictionary("/Font"));
+        if (Environment.GetEnvironmentVariable("BEKI_OUTLINE_PROOF_PATH") is { Length: > 0 } proof)
+            File.WriteAllBytes(proof, pdf);
     }
 
-    /// <summary>
-    /// Nothing but the cover acquired a rendering mode.
-    ///
-    /// The interior's copy has sat on its own translucent panel since ruling 2026-09-01's fourth and
-    /// is dark ink on cream, which needs no border; a stroke that had leaked onto those pages would
-    /// be a change to the book's typography that nobody asked for. The post-processing step touches
-    /// page 1 and this is the assertion that says so.
-    /// </summary>
     [Fact]
     public void No_interior_page_carries_a_text_rendering_mode()
     {
@@ -105,14 +57,6 @@ public class BekiCoverTitleOutlineTests
         }
     }
 
-    /// <summary>
-    /// The rim is on the page the customer downloads too, scaled with the type it surrounds, and
-    /// both covers say in their receipts how wide it was drawn.
-    ///
-    /// Audit P0-01 was about exactly this class of divergence — the printed cover and the downloaded
-    /// one being two different designs — so a rim that only the press file carried would be the same
-    /// finding with a different noun.
-    /// </summary>
     [Fact]
     public void Both_covers_carry_the_rim_and_their_receipts_state_its_width()
     {
@@ -133,11 +77,10 @@ public class BekiCoverTitleOutlineTests
         // divided by whatever the page's transform does to lengths, so this is also the assertion
         // that the arithmetic survives a second page geometry.
         var content = PageContent(reading.Pdf, 1);
-        Assert.Equal(Operators(content, "BT"), Operators(content, "Tr"));
-        Assert.Contains(
-            $"2 Tr {Pen(scaled)} w {OutlineInkOperands} RG 1 j 1 J",
-            content,
-            StringComparison.Ordinal);
+        Assert.Equal(0, Operators(content, "BT"));
+        Assert.Equal(0, Operators(content, "Tr"));
+        Assert.Contains(OutlineInkOperands + " RG", content);
+        Assert.True(Operators(content, "S") > 10);
 
         // A block with no rim says nothing rather than saying zero: the credits page is dark ink on
         // a flat ground and has never had a border.
@@ -146,23 +89,16 @@ public class BekiCoverTitleOutlineTests
             type => Assert.Null(type.TitleOutlineWidthPt));
     }
 
-    /// <summary>
-    /// The width is configuration, and zero is honestly zero — which is also the control the pixel
-    /// test below measures itself against.
-    /// </summary>
     [Fact]
-    public void A_zero_width_leaves_the_title_exactly_as_it_was()
+    public void A_zero_width_still_exports_the_title_as_filled_paths()
     {
         var content = PageContent(Unstroked.Value.Pdf, 1);
 
         Assert.Equal(0, Operators(content, "Tr"));
-        Assert.Contains("1 .9725 .9216 rg", content, StringComparison.Ordinal);
+        Assert.Equal(0, Operators(content, "BT"));
+        Assert.True(Operators(content, "f") > 10);
     }
 
-    /// <summary>
-    /// The face is named by the file the bootstrap already permits, so the two cannot drift apart
-    /// into a step that silently strokes nothing.
-    /// </summary>
     [Fact]
     public void The_title_face_the_step_looks_for_is_the_whitelisted_one()
     {
@@ -172,16 +108,6 @@ public class BekiCoverTitleOutlineTests
     // ==============================================================================================
     // The pixels
     // ==============================================================================================
-
-    /// <summary>
-    /// What the owner actually asked about: on the rendered cover, every cream pixel of the title
-    /// has the rim's near-black within three pixels of it, and without the rim none of them does.
-    ///
-    /// A hundred dots per inch is the density this is honest at — the rim is 1.5 pt, which is two
-    /// pixels here, so a ring that survives being resolved at all is a ring a press will hold. The
-    /// control matters as much as the measurement: the same page composed with the width at zero is
-    /// the file that shipped this morning, and it scores zero on the same test.
-    /// </summary>
     [SkippableFact]
     public void The_rendered_title_is_cream_glyphs_inside_a_dark_ring()
     {
@@ -204,18 +130,6 @@ public class BekiCoverTitleOutlineTests
     // ==============================================================================================
     // The gates the previous rim died on
     // ==============================================================================================
-
-    /// <summary>
-    /// The two gates that refused the offset-copy outline both pass on the stroked one.
-    ///
-    /// <c>SINGLE_TEXT_LAYER</c> counts text-showing operators and finds the layout's own budget;
-    /// <c>TEXT_COLOR_INTEGRITY</c> reads the fill colour in force at each of them and finds the
-    /// cream. Neither is asked to be lenient about anything: the rim is simply not made of text
-    /// draws, and it is not made of the fill.
-    ///
-    /// The fixture's low-resolution spreads still fail <c>PRESS_RESOLUTION</c>, as they do
-    /// everywhere else in this suite; that is the fixture, not the cover.
-    /// </summary>
     [Fact]
     public void The_stroked_title_passes_single_text_layer_and_text_colour_integrity()
     {
@@ -240,8 +154,6 @@ public class BekiCoverTitleOutlineTests
     // ==============================================================================================
     // Fixtures and measurement
     // ==============================================================================================
-
-    /// <summary>The same book with the rim turned off — the cover as it shipped before today.</summary>
     private static readonly Lazy<BekiComposedBook> Unstroked =
         new(() => ComposeCanonical(width: 0f));
 
@@ -269,8 +181,6 @@ public class BekiCoverTitleOutlineTests
             plan.Spreads.Select(spread => new BekiSpreadArtwork(spread.Number, Png(150, 70))).ToList(),
             BekiLayoutFixture.Personalization());
     }
-
-    /// <summary>A flat sheet of the fixture's own grey, which is neither the cream nor the rim.</summary>
     private static byte[] Png(int width, int height)
     {
         using var image = new Image<Rgba32>(width, height, new Rgba32(180, 170, 160));
@@ -278,11 +188,6 @@ public class BekiCoverTitleOutlineTests
         image.SaveAsPng(stream);
         return stream.ToArray();
     }
-
-    /// <summary>
-    /// One page's content operators, decoded — the array's pieces concatenated the way a viewer
-    /// concatenates them, so an assertion never depends on where the file happened to cut them.
-    /// </summary>
     private static string PageContent(byte[] pdf, int page)
     {
         using var stream = new MemoryStream(pdf);
@@ -291,26 +196,9 @@ public class BekiCoverTitleOutlineTests
         return Encoding.Latin1.GetString(
             document.Pages[page - 1].Contents.CreateSingleContent().Stream.UnfilteredValue);
     }
-
-    /// <summary>
-    /// How many times an operator is executed. None of the three names counted here can occur
-    /// inside a hex string — <c>T</c> is not a hex digit — and the lookbehind is what keeps a
-    /// resource name such as <c>/Tr1</c> from being read as one.
-    /// </summary>
     private static int Operators(string content, string name) =>
         Regex.Matches(content, $@"(?<![A-Za-z0-9/#]){Regex.Escape(name)}(?![A-Za-z0-9])").Count;
 
-    private static string Pen(double widthPt) =>
-        widthPt.ToString("0.######", CultureInfo.InvariantCulture);
-
-    /// <summary>
-    /// The rendered cover, counted: how much of the title is cream, how much is rim, and what share
-    /// of the cream has rim within three pixels of it.
-    ///
-    /// Exact colours rather than thresholds, because both are flat inks printed over a flat fixture
-    /// ground and the question is whether the operators reached the raster at all. Antialiased edge
-    /// pixels belong to neither count and are not asked to.
-    /// </summary>
     private static (int Cream, int Rim, double Rimmed) Ring(byte[] pdf)
     {
         var work = Path.Combine(Path.GetTempPath(), $"beki-title-rim-{Guid.NewGuid():N}");
@@ -382,6 +270,7 @@ public class BekiCoverTitleOutlineTests
         var error = process.StandardError.ReadToEnd();
         process.WaitForExit();
         Assert.True(process.ExitCode == 0, $"pdftoppm exited {process.ExitCode}: {error}");
+        Assert.DoesNotContain("Syntax Error", error, StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool PopplerInstalled() =>

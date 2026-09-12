@@ -197,17 +197,18 @@ public class BekiCoverTitleFitTests
     /// the same question only if nothing between the layout and the file dropped a line, which is
     /// precisely what happened before today.
     /// </summary>
-    [SkippableFact]
-    public void The_press_cover_file_carries_every_word_of_the_title()
+    [Fact]
+    public void The_press_cover_file_carries_a_path_for_every_shaped_title_character()
     {
-        Skip.IfNot(PopplerInstalled("pdftotext"), "Poppler (pdftotext) is not installed on this machine.");
-
-        var extracted = Normalize(ExtractPageOne(PressCover(LongTitle).Pdf));
-
-        foreach (var word in LongTitle.Split(' ', StringSplitOptions.RemoveEmptyEntries))
-        {
-            Assert.Contains(Normalize(word.ToUpperInvariant()), extracted, StringComparison.Ordinal);
-        }
+        var composed = PressCover(LongTitle);
+        using var stream = new MemoryStream(composed.Pdf);
+        using var document = PdfSharp.Pdf.IO.PdfReader.Open(stream, PdfSharp.Pdf.IO.PdfDocumentOpenMode.Modify);
+        var page = document.Pages[0];
+        var content = System.Text.Encoding.Latin1.GetString(page.Contents.CreateSingleContent().Stream.UnfilteredValue);
+        var visibleCharacters = LongTitle.Count(character => !char.IsWhiteSpace(character));
+        Assert.True(System.Text.RegularExpressions.Regex.Matches(content, "/BekiTitleGlyph BMC").Count >= visibleCharacters);
+        Assert.Null(page.Elements.GetDictionary("/Resources")?.Elements.GetDictionary("/Font"));
+        Assert.Equal(LongTitle, document.Info.Title);
     }
 
     // ==============================================================================================
@@ -272,47 +273,6 @@ public class BekiCoverTitleFitTests
         var page = Assert.Single(pages);
         return SixLabors.ImageSharp.Image.Identify(page).Height;
     }
-
-    /// <summary>Page one's text, as a text extractor reads it out of the finished file.</summary>
-    private static string ExtractPageOne(byte[] pdf)
-    {
-        var work = Path.Combine(Path.GetTempPath(), $"beki-title-fit-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(work);
-
-        try
-        {
-            var input = Path.Combine(work, "cover.pdf");
-            var output = Path.Combine(work, "cover.txt");
-            File.WriteAllBytes(input, pdf);
-
-            using var process = Process.Start(new ProcessStartInfo("pdftotext")
-            {
-                ArgumentList = { "-f", "1", "-l", "1", "-enc", "UTF-8", input, output },
-                RedirectStandardError = true,
-                UseShellExecute = false,
-            })!;
-
-            var error = process.StandardError.ReadToEnd();
-            process.WaitForExit();
-            Assert.True(process.ExitCode == 0, $"pdftotext exited {process.ExitCode}: {error}");
-
-            return File.ReadAllText(output);
-        }
-        finally
-        {
-            try { Directory.Delete(work, recursive: true); } catch { /* temp only */ }
-        }
-    }
-
-    /// <summary>
-    /// The extracted page and the expected words compared without their whitespace: a line break
-    /// inside the title is the layout doing its job, not a missing word, and an extractor is free to
-    /// put it wherever the glyphs sit.
-    /// </summary>
-    private static string Normalize(string text) =>
-        new(text.Normalize(NormalizationForm.FormKC)
-            .Where(character => !char.IsWhiteSpace(character))
-            .ToArray());
 
     private static bool PopplerInstalled(string tool) =>
         (Environment.GetEnvironmentVariable("PATH") ?? string.Empty)

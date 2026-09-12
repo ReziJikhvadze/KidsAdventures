@@ -80,7 +80,7 @@
     "story_text_ink": "#281B3F",
     "contrast_support": "text-sized soft cream wash",
     "wash_ink": "#FFF8EB",
-    "wash_opacity": 0.86,
+    "wash_opacity": 0.60,
     "critical_center_exclusion_mm": 30
   },
   "output": {
