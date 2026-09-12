@@ -15,6 +15,22 @@
       "cwd": ".",
       "port": 5000,
       "url": "http://localhost:5000"
+    },
+    {
+      "name": "adventrya-api-local",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": [
+        "run",
+        "--launch-profile",
+        "Development",
+        "--",
+        "--ConnectionStrings:DefaultConnection=Server=(localdb)\\MSSQLLocalDB;Database=KidsAdventuresLocal;Trusted_Connection=True;TrustServerCertificate=True",
+        "--Providers:Story=OpenAI",
+        "--LocalBlobStorage:Enabled=true"
+      ],
+      "cwd": ".",
+      "port": 5000,
+      "url": "http://localhost:5000"
     }
   ]
 }
