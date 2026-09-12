@@ -1,4 +1,4 @@
-import { Sparkles } from "lucide-react";
+import { Loader2, Sparkles } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 
@@ -239,6 +239,17 @@ export function GeneratingStage({ draft, onChange }: Props) {
   const newest = pages.length > 0 ? pages[pages.length - 1] : null;
   const artSrc = newest?.url ?? coverSrc;
 
+  /*
+    Whether anything on this screen is yet the parent's own book.
+
+    A parent arriving back from the bank has an order id and nothing else: no draft, no
+    title, no cover, until the first poll answers - and that first answer took long enough
+    to read. What stood there meanwhile was the world's stock painting under a title made
+    from a formula, presented as the book they had just paid for. A spinner says the true
+    thing instead, and it is gone the moment either half of the real book arrives.
+  */
+  const bookKnown = Boolean(draft.preview || known);
+
   if (error) {
     return (
       <section className="ux-preview-stage">
@@ -272,7 +283,7 @@ export function GeneratingStage({ draft, onChange }: Props) {
             <i />
             <i />
           </div>
-          <article className="ux-book-cover generation-book">
+          <article className={`ux-book-cover generation-book${bookKnown ? "" : " is-loading"}`}>
             <div
               className="ux-cover-art"
               style={{ backgroundImage: `url("${artSrc}")` }}
@@ -280,7 +291,14 @@ export function GeneratingStage({ draft, onChange }: Props) {
             />
             <div className="ux-cover-shade" aria-hidden="true" />
             <img className="ux-cover-brand" src={BEKI_MARK_WHITE_URL} alt={BRAND_NAME} />
-            <h2>{bookTitle}</h2>
+            {bookKnown ? (
+              <h2>{bookTitle}</h2>
+            ) : (
+              <span className="generation-book-loading" role="status">
+                <Loader2 aria-hidden="true" />
+                {t.common.states.loading}
+              </span>
+            )}
           </article>
           <div className="generation-ring ring-one" aria-hidden="true" />
           <div className="generation-ring ring-two" aria-hidden="true" />

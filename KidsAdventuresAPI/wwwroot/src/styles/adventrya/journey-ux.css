@@ -4746,3 +4746,30 @@
     margin-bottom: 8px;
   }
 }
+
+/* The cover while the order is still only an id: the stand-in is dimmed and says so. */
+.ux-generating .generation-book.is-loading .ux-cover-art {
+  filter: saturate(0.55) brightness(0.62);
+}
+.ux-generating .generation-book-loading {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  color: #fff8ebde;
+  font-size: 13px;
+  font-weight: 600;
+  text-shadow: 0 2px 10px rgba(5, 2, 17, 0.92);
+}
+.ux-generating .generation-book-loading svg {
+  width: 17px;
+  height: 17px;
+  animation: ux-photo-spin 900ms linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ux-generating .generation-book-loading svg {
+    animation-duration: 2600ms;
+  }
+}

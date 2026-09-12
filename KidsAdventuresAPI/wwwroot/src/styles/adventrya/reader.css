@@ -1342,3 +1342,24 @@
     letter-spacing: 0.1em;
   }
 }
+
+/*
+  The book is read on paper, not against a night sky.
+
+  The stage was the shell's own violet - the colour the journey uses for a screen you are
+  moving through - and the one screen where nothing is being decided is this one. The plate
+  behind the book is the printed endpaper: the same pattern pasted inside the real cover, so
+  the object on screen is standing on its own paper. `cover` rather than a tile, because the
+  plate is one 450 x 210mm sheet and was never drawn to meet itself at the edges.
+
+  Only the stage. The bar above it keeps the dark ground its cream type is legible on.
+*/
+.reader-shell-book .reader-stage {
+  background: #f6eeda url("/adventrya/hero-demo/endpaper.webp") center / cover no-repeat;
+}
+
+/* And the hint turns over with the ground it is printed on. */
+.reader-shell-book .storybook-full .storybook-gesture-hint {
+  color: #3d2c63de;
+  text-shadow: 0 1px 4px rgba(255, 251, 240, 0.85);
+}
