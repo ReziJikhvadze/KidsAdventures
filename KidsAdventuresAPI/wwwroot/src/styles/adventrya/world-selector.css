@@ -1346,6 +1346,7 @@
 
 .mobile-frame .world-action {
   bottom: -18%;
+  justify-self: center;
   /*
     As wide as the button, not as wide as the name. The desktop rule ties the two together so
     they read as one card, which is right on a landscape painting with room around each island;
