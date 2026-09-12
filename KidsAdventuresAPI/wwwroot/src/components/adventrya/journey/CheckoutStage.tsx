@@ -122,8 +122,14 @@ export function CheckoutStage({ draft, onChange, onPaid, onPreviewStale }: Props
   const addressStarted = draft.shipping.addressLine1.trim().length > 2;
   /*
     Read soonest first - three days, then five - which is not the order the pricing rule returns
-    them in. That array leads with the default, and the default is the free one; sorting it would
-    have moved every Tbilisi order onto the paid window. See `deliveryOptionsForDisplay`.
+    them in. That array mirrors the server and leads with what an unnamed option costs there; it
+    is not re-sorted, because that would change a price rather than a reading order. See
+    `deliveryOptionsForDisplay`.
+
+    Soonest is also what an unchosen checkout now starts on, which is the same list read the same
+    way: `resolveDeliveryOption` falls back to `preferredDeliveryOption`, and every quote and
+    every order names the result explicitly, so the server prices what the radio shows rather
+    than falling back to its own default.
   */
   const deliveryChoices: DeliveryOptionId[] = isPrint ? deliveryOptionsForDisplay(addressHint) : [];
   const deliveryOption = isPrint

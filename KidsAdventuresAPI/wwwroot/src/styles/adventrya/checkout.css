@@ -670,6 +670,36 @@
   font-size: 13.5px;
 }
 
+/*
+  The line that opens the step, given room to be read as one.
+
+  On a phone this is where the parent is told the book is ready and that what follows is only
+  delivery and payment. It was already in the right place - after the order card, before the
+  address - but it was not reading as an opening: 12px under it against the address heading's
+  own 14px collapse to fourteen pixels, so "ყველაფერი მზადაა" sat closer to the question below
+  it than to anything else and scanned as a caption on that question rather than as the answer
+  to "am I finished?".
+
+  Air, then, and only air: no panel, no rule, no colour. The bubble is the product's own voice
+  and already looks like good news; boxing it would have made it look like a notice, which is
+  the one thing this line must not be. Sixteen above separates it from the card, twenty-six
+  below - which beats the block's fourteen, so it is this number that decides the gap - puts
+  clear space between the confirmation and the first thing there is to fill in.
+
+  Scoped to the checkout stage and to three classes on purpose. The same guide appears on the
+  generating screen, where he is a caption on a heading and should stay tight to it, and there
+  are four `.ux-beki-guide` rules in this file whose order already decides which margin wins.
+
+  Scoped to the one column as well. On a wide window the order card is a rail down the right and
+  this line sits under the heading in the left column with the address well clear of it, so the
+  crowding this fixes does not happen there and the desktop keeps the spacing it had.
+*/
+@media (max-width: 1023px), (max-height: 767px) {
+  .journey-checkout .ux-checkout-stage .ux-beki-guide {
+    margin: 16px 0 26px;
+  }
+}
+
 /* The questions, closer together, with smaller titles: they label, they do not announce. */
 .ux-block {
   margin-top: 14px;

@@ -97,29 +97,56 @@ export function deliveryOptionsFor(...parts: (string | null | undefined)[]): Del
 }
 
 /**
+ * What a parent is given before they have chosen anything: the soonest option the address
+ * allows. In Tbilisi that is the three-day window at 7 GEL; everywhere else there is only one
+ * option and this returns it.
+ *
+ * Deliberately not `deliveryOptionsFor(...)[0]`, which is the *free* one and was what an
+ * unchosen checkout used to land on. Sold as a keepsake for a birthday, the difference between
+ * three days and five is most of what the parent is buying, and the option that answers that
+ * was the one they had to notice and press.
+ *
+ * This is a client-side preference, and the server does not share it: `GeorgianDelivery.DefaultFor`
+ * still answers with the free option when a request names none. Nothing relies on the two
+ * agreeing, because the checkout never leaves it unnamed — the quote and the order both send the
+ * value this module resolved (see CheckoutStage), and the server honours any option the address
+ * allows. If a caller is ever added that omits `deliveryOption` on a print order, that caller
+ * gets the server's default and not this one.
+ */
+export function preferredDeliveryOption(...parts: (string | null | undefined)[]): DeliveryOptionId {
+  return deliveryOptionsForDisplay(...parts)[0];
+}
+
+/**
  * The option to use for this address: what was asked for when the address allows it, and
- * otherwise the first one it does allow. Same rule as the server, so the two never disagree
- * about what is selected while a quote is in flight.
+ * otherwise the one `preferredDeliveryOption` would start them on.
+ *
+ * The clamp half of this is unchanged and is what the server does too — a parent who picked the
+ * free Tbilisi window and then typed an address in Batumi cannot keep it, and is moved to the
+ * option that address really has rather than being refused at the till.
  */
 export function resolveDeliveryOption(
   requested: DeliveryOptionId | undefined,
   ...parts: (string | null | undefined)[]
 ): DeliveryOptionId {
   const allowed = deliveryOptionsFor(...parts);
-  return requested && allowed.includes(requested) ? requested : allowed[0];
+  return requested && allowed.includes(requested) ? requested : preferredDeliveryOption(...parts);
 }
 
 /**
  * The same options, in the order a parent reads them: soonest first.
  *
  * Deliberately not the order `deliveryOptionsFor` returns, and this is the whole reason it is a
- * second function rather than a re-sort of the first. That array's first entry is the *default* -
- * it is what an address that has not chosen yet is charged, on the server as well as here - and
- * the default is the free one. Sorting that array to read better would quietly move every Tbilisi
- * order onto the seven-lari window.
+ * second function rather than a re-sort of the first. That array mirrors the server, whose own
+ * first entry is still what an address that names no option is charged - the free one. Sorting
+ * the mirror to read better would have silently changed what a request with no option in it
+ * costs, which is a different decision from the one below.
  *
- * So: the list is ordered here, the money is decided there, and neither can be tidied into the
- * other by accident.
+ * The checkout does now start a parent on the soonest option rather than the free one, and it
+ * does it by NAMING that option on every quote and every order - see `preferredDeliveryOption`,
+ * which reads this list's first entry. So the reading order is decided here, the mirror stays a
+ * mirror, and the default is a third thing that is written down rather than inherited from
+ * either.
  */
 export function deliveryOptionsForDisplay(
   ...parts: (string | null | undefined)[]
