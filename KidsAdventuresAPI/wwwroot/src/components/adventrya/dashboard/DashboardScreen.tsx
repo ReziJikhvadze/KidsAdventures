@@ -780,15 +780,18 @@ export function DashboardScreen({
               </Link>
             ) : null}
 
-            <Link
-              className="journey-button journey-primary-button"
-              to={newParts.to}
-              search={newParts.search}
-              hash={newParts.hash}
-            >
-              <Plus aria-hidden="true" />
-              {t.dashboard.sidebar.newBook}
-            </Link>
+            {/* Only when the shelf has no tile of its own carrying the same link. */}
+            {visiblePacks.length === 0 ? (
+              <Link
+                className="journey-button journey-primary-button"
+                to={newParts.to}
+                search={newParts.search}
+                hash={newParts.hash}
+              >
+                <Plus aria-hidden="true" />
+                {t.dashboard.sidebar.newBook}
+              </Link>
+            ) : null}
           </div>
         </section>
 

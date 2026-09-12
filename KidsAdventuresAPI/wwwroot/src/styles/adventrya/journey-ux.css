@@ -917,6 +917,7 @@
 }
 .ux-preview-heading h1 {
   font-size: clamp(34px, 2.8vw, 46px);
+  text-wrap: balance;
 }
 /*
   Two columns that share the row, with no floor under either.

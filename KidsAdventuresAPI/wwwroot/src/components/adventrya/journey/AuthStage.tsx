@@ -6,6 +6,7 @@ import { StorybookVolume } from "@/components/adventrya/storybook/StorybookVolum
 import { useAuth } from "@/lib/auth/AuthContext";
 import { useT } from "@/lib/i18n";
 import { primaryCharacter, type JourneyDraft } from "@/lib/journey/draft";
+import { hasRenderedPreview } from "@/lib/journey/previewRecovery";
 import { useWorldById, type WorldId } from "@/lib/worlds";
 
 type Props = {
@@ -78,6 +79,7 @@ export function AuthStage({ draft, onAuthenticated }: Props) {
           heroName={heroName}
           title={bookTitle}
           coverImageUrl={coverSrc}
+          coverCarriesItsOwnType={hasRenderedPreview(draft.preview)}
           worldId={worldId}
           pages={NO_PAGES}
           lockedPageCount={0}

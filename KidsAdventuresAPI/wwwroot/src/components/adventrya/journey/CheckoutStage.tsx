@@ -35,7 +35,7 @@ import {
 } from "@/lib/i18n";
 import { primaryCharacter, type JourneyDraft } from "@/lib/journey/draft";
 import { clearJourneyResume } from "@/lib/journey/resume";
-import { readyPreviewPatch } from "@/lib/journey/previewRecovery";
+import { hasRenderedPreview, readyPreviewPatch } from "@/lib/journey/previewRecovery";
 import { getGuestPreviewStatus } from "@/lib/api/adventure-packs";
 import { ensureServerCharacters } from "@/lib/journey/syncCharacters";
 import {
@@ -1130,6 +1130,7 @@ export function CheckoutStage({ draft, onChange, onPaid, onPreviewStale }: Props
             heroName={heroName}
             title={bookTitle}
             coverImageUrl={coverSrc}
+            coverCarriesItsOwnType={hasRenderedPreview(draft.preview)}
             worldId={worldId}
             pages={thumbPages}
             lockedPageCount={0}
