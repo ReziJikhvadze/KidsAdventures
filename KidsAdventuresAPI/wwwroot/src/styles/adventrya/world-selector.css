@@ -300,6 +300,40 @@
   --stage-height: max(100svh, calc(var(--frame-height) / 1.35));
 }
 
+/*
+  Room for the landing header, the way the hero already makes it.
+
+  `.landing-v3-header` is sticky and carries a negative bottom margin exactly its own height, so
+  every section on the page slides underneath it by design. This one is the section where that
+  costs something: the map fills the screen, its headline is pinned near the top of the painting,
+  and the bar ends at 69px — so "აირჩიე ჯადოსნური სამყარო" was drawn entirely behind the wordmark
+  at 320, 360, 375, 390 and 430. Not close to it, behind it, by about sixty pixels.
+
+  `.landing-v3-hero` answers the same problem by reserving `--lv3-header-h` in its own top
+  padding, and this is that, on the one stage that fills its box instead of laying out in flow.
+  Read from the token rather than from the 69px the bar actually measures on a phone: the token
+  is what every other section on the page reserves, and being a few pixels generous here is the
+  direction the error should point.
+
+  Two details make it safe. The reserve comes out of the content box rather than being added to
+  the height, so the section is still one screen tall and the page gains no scroll. And
+  `--stage-height` is restated to match that content box, because the frame subtracts it from its
+  own height to learn how much of the painting is hidden — left at 100svh it would have told the
+  headline, the wordmark and the bottom row of cards that nothing was cropped, and every one of
+  them would have offset itself by zero into the band that is now covered.
+
+  Portrait and embedded only: `/themes` is the map with no landing header over it.
+*/
+@media (orientation: portrait) {
+  .experience-shell-embedded .art-stage.mobile-stage {
+    --header-reserve: calc(var(--lv3-header-h, 76px) + 10px);
+    --stage-height: calc(max(100svh, calc(var(--frame-height) / 1.35)) - var(--header-reserve));
+    height: max(100svh, calc(var(--frame-height) / 1.35));
+    max-height: max(100svh, calc(var(--frame-height) / 1.35));
+    padding-top: var(--header-reserve);
+  }
+}
+
 .master-art {
   position: absolute;
   inset: 0;
@@ -731,7 +765,17 @@
   transition: opacity 180ms ease;
 }
 
-.world-node.is-previewed::before {
+.world-node.is-previewed::before,
+/*
+  The chosen island carries the glow too, not only the one under the finger.
+
+  A phone has no hover, so `is-previewed` is set on the same tap that selects and cleared the
+  moment the finger leaves: the warm halo flashed once and went out, leaving the button below to
+  say on its own which island had been chosen. Now that the button is small enough not to shout,
+  the island itself holds the state — with the dimmer over the other five and the tick on the
+  name, that is three quiet signals instead of one loud one.
+*/
+.world-node.is-selected::before {
   opacity: 1;
 }
 
@@ -1170,26 +1214,156 @@
 .mobile-frame .headline span {
   display: none;
 }
+/*
+  The portrait master's names, placed the way the landscape master's already are.
+
+  Mobile never got the per-island placement the desktop block above describes, so all six fell
+  back to the shared `.world-card` rule and sat centred on the island they were naming. Two
+  things put them there. The card is anchored by its bottom edge and the button is its last row,
+  so every name was held up off the island by the 44px of invisible button that reserves its row
+  whether or not it is showing. And the name itself was pinned to one line inside a box 90% of a
+  tap target wide, with `text-overflow: ellipsis` to absorb the difference — so all six were cut,
+  every one of them, on every width from 320 to 430: "ღრუბლების ქა...", "ვარსკვლავების...".
+  A name that cannot be read is not doing the one job it has.
+
+  Three changes, and the third is what makes the other two safe.
+
+  1. The card hangs from its TOP edge here. Anchoring by the bottom measured the name's position
+     through the button's height — a fixed 44px against island boxes that are 16% to 21% of the
+     frame tall — which is why no single offset ever suited all six. From the top the name lands
+     where it is put, and the button hangs below it into the cloud, which is where the desktop
+     block above already says it belongs.
+
+  2. Each name moves to its island's OUTER bottom corner: the left column to the left, the right
+     column to the right. The islands are painted round inside square tap targets, so that corner
+     is the one part of the box the art does not reach, and the offsets drop each name onto the
+     dark rock underside — read off the master itself, the same way the desktop values were.
+
+  3. The outer edge is held at 7% / 93% of the FRAME, not at the island box's own edge. This
+     frame may be up to 8.7% wider than the screen and is centred in it, so up to 4.0% of the
+     painting is hidden off each side — and kingdom's box starts at 2% while dinosaurs' ends at
+     98%, both inside that band. Anchored to their own boxes those two names would have hung off
+     the screen on a 320 or 360px phone. Each offset below is (7 − boxLeft) / boxWidth in the
+     box's own units, or its mirror on the right; recompute them if ISLAND_SPOTS.mobile moves.
+*/
+.mobile-frame .world-card {
+  top: auto;
+  bottom: auto;
+  gap: 4px;
+  transform: none;
+}
+
+/* Left column: clouds 4.5%, animals 5%, kingdom 2% — see (3) above for the arithmetic. */
+.mobile-frame .hotspot-clouds .world-card {
+  top: 86%;
+  right: auto;
+  left: 6.4%;
+  justify-items: start;
+}
+
+.mobile-frame .hotspot-animals .world-card {
+  top: 92%;
+  right: auto;
+  left: 5.6%;
+  justify-items: start;
+}
+
+.mobile-frame .hotspot-kingdom .world-card {
+  top: 90%;
+  right: auto;
+  left: 12.5%;
+  justify-items: start;
+}
+
+/* Right column: space and ocean end at 97%, dinosaurs at 98%. */
+.mobile-frame .hotspot-space .world-card {
+  top: 72%;
+  right: 9.1%;
+  left: auto;
+  justify-items: end;
+}
+
+.mobile-frame .hotspot-ocean .world-card {
+  top: 82%;
+  right: 10%;
+  left: auto;
+  justify-items: end;
+}
+
+.mobile-frame .hotspot-dinosaurs .world-card {
+  top: 96%;
+  right: 12.5%;
+  left: auto;
+  justify-items: end;
+}
+
 .mobile-frame .world-label {
-  bottom: 3%;
-  width: max-content;
+  /*
+    So the selected tick hangs off the NAME's corner. The badge is positioned, the label was not,
+    so it was measuring itself against the card — which is the name and the button together, and
+    is a different box the moment the button appears underneath.
+  */
+  position: relative;
+  /*
+    `min-content` rather than `fit-content`, so each name is as wide as its own longest word and
+    no wider. `fit-content` capped by the max-width below gave all six the identical width — the
+    cap itself — because the cap is what a one-line name overflows to, leaving "გზა" alone under
+    a box measured for "ვარსკვლავების". Six boxes of one width across a painting read as a form;
+    six that each fit their own word read as labels on a map.
+  */
+  width: min-content;
   min-width: 0;
-  max-width: 90%;
-  padding: clamp(6px, 1.5vw, 8px) clamp(9px, 2.4vw, 13px);
-  border-color: rgba(255, 225, 154, 0.27);
+  /*
+    Every one of the six names is two words, so the cap is set where the longer word of the pair
+    fits on a line of its own — not where the whole name fits on one, which is the measurement
+    that produced the ellipses. Below roughly 340px the vw term takes over and the name wraps a
+    line earlier rather than shrinking past reading size.
+  */
+  max-width: clamp(105px, 34vw, 145px);
+  padding: 6px 10px;
+  /* A rounded rectangle, not a capsule. At this size 999px turned a two-line name into a lozenge
+     with more corner than text, and six lozenges across a painting read as chrome. */
+  border-color: rgba(255, 227, 160, 0.34);
+  border-radius: 11px;
+  background: rgba(10, 6, 32, 0.66);
+  box-shadow:
+    0 4px 14px rgba(2, 1, 18, 0.45),
+    inset 0 0 14px rgba(255, 211, 107, 0.05);
 }
 
 .mobile-frame .world-label small {
   display: none;
 }
 
+/* A 14px disc with a 9px glyph in it is a smudge at arm's length on a phone, and it is now one
+   of the three things saying which world is chosen. Two pixels each way is enough to read. */
+.mobile-frame .world-node.is-selected .world-label::after {
+  top: -6px;
+  right: -6px;
+  width: 17px;
+  height: 17px;
+  font-size: 11px;
+}
+
 .mobile-frame .world-label .world-title {
   display: block;
-  overflow: hidden;
+  overflow: visible;
   max-width: 100%;
-  font-size: clamp(10px, 2.8vw, 13px);
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  color: #fffaf0;
+  font-size: clamp(11px, 3.1vw, 14px);
+  line-height: 1.2;
+  /*
+    `break-word`, not `anywhere`: the two differ only in whether the break opportunity counts
+    towards min-content, and min-content is now what sizes the box. Under `anywhere` that
+    measurement is one character, so every name would collapse to a vertical column of letters.
+    This still rescues a single word longer than the cap, which is the case it is here for.
+  */
+  overflow-wrap: break-word;
+  text-align: center;
+  text-overflow: clip;
+  /* One word per line rather than a full line and an orphan. */
+  text-wrap: balance;
+  white-space: normal;
 }
 
 .mobile-frame .hotspot-marker {
@@ -1198,17 +1372,59 @@
 
 .mobile-frame .world-action {
   bottom: -18%;
+  /*
+    As wide as the button, not as wide as the name. The desktop rule ties the two together so
+    they read as one card, which is right on a landscape painting with room around each island;
+    on a phone it made a 97px slab of solid gold out of a six-character word, and the slab landed
+    on the island below the one it belonged to.
+  */
+  width: auto;
 }
 
+/*
+  The one thing to press, at the size a phone needs and no larger.
+
+  It inherited the desktop button whole: the full width of the name above it and a 44px floor
+  under its height, in solid gold over a painting. Choosing a world should not black out the next
+  world along, and at this size the gold gradient is loud enough to be found without being large.
+
+  The visible rectangle shrinks to its own text. The touch target does not — `::after` pads the
+  hit area back out to 44px in both directions, which is what a thumb needs and what the drawn
+  button no longer measures. Same element, same handler, same destination: only the paint moved.
+*/
 .mobile-frame .continue-button {
+  position: relative;
+  width: auto;
+  min-height: 0;
+  gap: 5px;
+  padding: 6px 11px;
+  font-size: clamp(10px, 2.8vw, 12px);
+  /* Lighter than the desktop's three-layer lift. A smaller object needs less shadow to sit off
+     the cloud, and the same shadow at this size reads as a smudge under the word. */
+  box-shadow:
+    0 5px 14px rgba(6, 3, 20, 0.46),
+    inset 0 1px rgba(255, 250, 235, 0.6);
+}
+
+/*
+  The tap target the drawn button stopped providing. Centred on it, so the 44px grows outward
+  in every direction rather than hanging off one edge, and transparent, so it costs nothing to
+  look at. It is inside the button, so it needs no pointer-events of its own.
+*/
+.mobile-frame .continue-button::after {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 100%;
+  height: 100%;
+  min-width: 44px;
   min-height: 44px;
-  gap: 6px;
-  padding: 9px 10px;
-  font-size: clamp(11px, 3vw, 13px);
+  transform: translate(-50%, -50%);
+  content: "";
 }
 
 .mobile-frame .continue-button svg {
-  width: clamp(10px, 2.6vw, 14px);
+  width: clamp(9px, 2.4vw, 12px);
 }
 @media (max-width: 899px) and (orientation: portrait), (max-aspect-ratio: 9 / 10) {
   .desktop-stage {
