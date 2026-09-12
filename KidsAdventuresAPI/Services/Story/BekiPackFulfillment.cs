@@ -48,6 +48,21 @@ public interface IBekiPackFulfillment
     [DisableConcurrentExecution(BekiPackLockResource.Pattern, 60)]
     Task ProcessAsync(Guid packId, Guid runId, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// The customer's own copy, composed on the spot from artwork that is already stored.
+    ///
+    /// No PDF of this book is kept anywhere: the reading copy is built for the request that
+    /// asks for it and is gone when the response ends. It is composed rather than prepared -
+    /// <see cref="IBekiPdfComposer.ComposeReading"/> and not the press stage - so a parent's
+    /// download never carries print normalization, and the upscaler, which lives in that
+    /// stage, is unreachable from here.
+    ///
+    /// Draws nothing and bills nothing: every picture it assembles was paid for once, when the
+    /// book was made.
+    /// </summary>
+    Task<byte[]> ComposeCustomerPdfAsync(Guid packId, Guid userId, CancellationToken cancellationToken) =>
+        throw new NotSupportedException("On-demand composition is unavailable.");
+
     /// <summary>Admin-only recovery from stored artwork. Never invokes generation or drawing.</summary>
     [DisableConcurrentExecution(BekiPackLockResource.Pattern, 60)]
     Task RecoverCustomerPdfAsync(Guid packId, CancellationToken cancellationToken) =>
@@ -589,6 +604,29 @@ public sealed class BekiPackFulfillment(
         + "regeneration); try again when it finishes.";
 
     [DisableConcurrentExecution(BekiPackLockResource.Pattern, 60)]
+    public async Task<byte[]> ComposeCustomerPdfAsync(
+        Guid packId,
+        Guid userId,
+        CancellationToken cancellationToken)
+    {
+        var pack = await packRepository.GetByIdAsync(packId, userId, cancellationToken)
+            ?? throw new InvalidOperationException("Book not found.");
+
+        var book = await LoadStoredBookAsync(pack, cancellationToken);
+
+        /*
+          Composed, never prepared.
+
+          `ComposeReading` is the fourteen-page book at its finished size, cut from the same
+          wrap the printed cover is cut from. The press stage is the other thing that can make
+          a PDF here, and it is the one that normalizes and may upscale; a parent downloading
+          their child's book has no use for either, and printing is not what this call is for.
+        */
+        return composer
+            .ComposeReading(book.Plan, book.WrapComposite, book.Spreads, book.Personalization)
+            .Pdf;
+    }
+
     public async Task RecoverCustomerPdfAsync(Guid packId, CancellationToken cancellationToken)
     {
         var pack = await packRepository.GetByIdNoOwnershipAsync(packId, cancellationToken)

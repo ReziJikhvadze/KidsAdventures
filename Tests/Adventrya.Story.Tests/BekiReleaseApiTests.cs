@@ -479,6 +479,8 @@ public class BekiReleaseApiTests
             Options.Create(new ClientIpOptions()),
             new FakeCharacters(),
             new FakeRuns(),
+            new FakeFulfillment(),
+            new FakePdf(),
             NullLogger<AdventurePacksController>.Instance)
         {
             // The download and illustration routes write response headers, which need a context.
@@ -712,6 +714,22 @@ public class BekiReleaseApiTests
         public Task CacheAppearanceAsync(
             Guid userId, BookCastMember member, string appearanceDescription, CancellationToken ct) =>
             throw new NotSupportedException();
+    }
+
+    /// <summary>
+    /// Composes nothing. These tests are about which books may be downloaded at all, and the
+    /// interface default throws - which is the case the controller answers by falling back to
+    /// the stored file, exactly as it does for a book drawn before the current contract.
+    /// </summary>
+    private sealed class FakeFulfillment : IBekiPackFulfillment
+    {
+        public Task ProcessAsync(Guid packId, Guid runId, CancellationToken cancellationToken) =>
+            Task.CompletedTask;
+    }
+
+    private sealed class FakePdf : IAdventurePdfService
+    {
+        public byte[] GeneratePdf(PdfBookRequest request) => [1, 2, 3];
     }
 
     private sealed class FakeBlobs : IBlobStorageService

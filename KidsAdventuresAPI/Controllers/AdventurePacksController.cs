@@ -36,6 +36,8 @@ public sealed class AdventurePacksController(
     IOptions<ClientIpOptions> clientIpOptions,
     ICharacterRepository characterRepository,
     IMasterStoryRunRepository masterStoryRunRepository,
+    IBekiPackFulfillment bekiFulfillment,
+    IAdventurePdfService adventurePdfService,
     ILogger<AdventurePacksController> logger) : ControllerBase
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
@@ -785,6 +787,78 @@ public sealed class AdventurePacksController(
         }
     }
 
+    /// <summary>
+    /// This book's reading copy, made now.
+    ///
+    /// The fallback is for books that predate this: composition reads a fulfilment manifest and
+    /// refuses artwork drawn to a contract it no longer understands, and a book finished before
+    /// that contract moved would otherwise lose a download it has always had. It is used only
+    /// when a file is genuinely still in storage, and goes with the last of those files.
+    /// </summary>
+    private async Task<byte[]> ReadingPdfAsync(
+        Domain.Entities.AdventurePack row,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return row.IsBekiPipeline
+                ? await bekiFulfillment.ComposeCustomerPdfAsync(row.Id, row.UserId, cancellationToken)
+                : await LegacyReadingPdfAsync(row, cancellationToken);
+        }
+        catch (Exception ex) when (!string.IsNullOrWhiteSpace(row.PdfUrl))
+        {
+            logger.LogWarning(
+                ex,
+                "Pack {PackId} could not be composed on demand; serving the stored copy.",
+                row.Id);
+            return await blobStorageService.DownloadBytesFromStoredUrlAsync(
+                row.PdfUrl, cancellationToken);
+        }
+    }
+
+    /// <summary>
+    /// A pre-composite book, set again from what it has: the story it was written as and the
+    /// cover that was painted for it. The same call the old pipeline made before it uploaded the
+    /// result; the upload is what is gone.
+    /// </summary>
+    private async Task<byte[]> LegacyReadingPdfAsync(
+        Domain.Entities.AdventurePack row,
+        CancellationToken cancellationToken)
+    {
+        var content = string.IsNullOrWhiteSpace(row.GeneratedJson)
+            ? null
+            : JsonSerializer.Deserialize<AdventureContentDto>(row.GeneratedJson, JsonOptions);
+        if (content is null)
+        {
+            throw new InvalidOperationException("The book has no stored story to set.");
+        }
+
+        byte[]? cover = null;
+        if (!string.IsNullOrWhiteSpace(row.CoverImageUrl))
+        {
+            try
+            {
+                cover = await blobStorageService.DownloadBytesFromStoredUrlAsync(
+                    row.CoverImageUrl, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                /* A cover that will not load is a typeset cover, never a refused download. */
+                logger.LogWarning(ex, "Cover art unavailable for pack {PackId}; typesetting one.", row.Id);
+            }
+        }
+
+        return adventurePdfService.GeneratePdf(new PdfBookRequest
+        {
+            Content = content,
+            ThemeName = row.Theme.ToString(),
+            CoverImage = cover,
+            Language = row.StoryLanguage ?? "ka",
+            ContinueUrl = BekiOptions.WebsiteQrDestination,
+            ForPrint = false,
+        });
+    }
+
     [HttpGet("{id:guid}/download")]
     public async Task<IActionResult> Download(Guid id, CancellationToken cancellationToken)
     {
@@ -824,7 +898,20 @@ public sealed class AdventurePacksController(
 
         try
         {
-            var bytes = await blobStorageService.DownloadBytesFromStoredUrlAsync(row.PdfUrl, cancellationToken);
+            /*
+              Built for this request, and kept by nobody.
+
+              This used to hand back a file made once and left in storage. Two things were wrong
+              with that. A Beki book's stored PDF is the press artifact - the one the print
+              stage normalizes and may upscale - so a parent downloading their child's book was
+              being given the printer's copy; and the file itself sat in our storage for the
+              life of the book, for something every one of its inputs can rebuild in a moment.
+
+              Both ends are the same fix: compose the reading copy when it is asked for. Nothing
+              is drawn and nothing is billed - the pictures were paid for when the book was made
+              and are read back as they are - and no PDF of this book is written down anywhere.
+            */
+            var bytes = await ReadingPdfAsync(row, cancellationToken);
 
             // The book arrives under its own name. What stood here handed the browser the row's
             // primary key, so a parent saving a second book got a second beki-<guid>-book.pdf and
