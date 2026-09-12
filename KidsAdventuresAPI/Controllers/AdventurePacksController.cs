@@ -868,7 +868,19 @@ public sealed class AdventurePacksController(
             return NotFound();
         }
 
-        if (row.Status != AdventurePackStatus.Completed || string.IsNullOrWhiteSpace(row.PdfUrl))
+        /*
+          Whether this book may be downloaded is a verdict, not a file.
+
+          The test was `PdfUrl is null`, which worked only because the pipeline wrote that
+          column from exactly one thing: the release report's permission to publish. Now that
+          no PDF is kept, the column cannot answer it - so the question goes where the answer
+          always came from. A book with no report at all is a legacy one, held by nothing.
+        */
+        var held = row.Status == AdventurePackStatus.Completed
+            ? await downloadStatus.DownloadHeldReasonAsync(row.UserId, id, cancellationToken)
+            : null;
+
+        if (row.Status != AdventurePackStatus.Completed || held is not null)
         {
             /*
               The download lie, answered.
@@ -880,10 +892,6 @@ public sealed class AdventurePacksController(
               a wait with pictures behind it, and a finished book whose file is held is a wait with
               a person behind it.
             */
-            var held = row.Status == AdventurePackStatus.Completed
-                ? await downloadStatus.DownloadHeldReasonAsync(row.UserId, id, cancellationToken)
-                : null;
-
             return BadRequest(new
             {
                 message = held switch

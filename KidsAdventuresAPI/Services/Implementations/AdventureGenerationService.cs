@@ -713,13 +713,9 @@ public sealed class AdventureGenerationService(
                 }
             }
 
-            // Two files, from one book.
-            //
-            // The reading copy is what a parent downloads and the print copy is what goes to the
-            // binder; they differ by two blank leaves, which saddle-stitch needs and a screen
-            // does not. Rendering both here rather than at order time keeps the printable file
-            // ready the moment somebody buys one, and costs one more pass over a book we have
-            // already laid out.
+            // The book, laid out once so the layout itself is proven before the pack is called
+            // finished. Neither copy is kept: the reading one is set again for whoever asks for
+            // it, and the printer's is made when a printer needs it.
             var request = new PdfBookRequest
             {
                 Content = content,
@@ -730,22 +726,10 @@ public sealed class AdventureGenerationService(
                 ContinueUrl = $"{_emailOptions.BaseUrl.TrimEnd('/')}/create"
             };
 
-            var pdfBytes = adventurePdfService.GeneratePdf(request with { ForPrint = false });
-            var printBytes = adventurePdfService.GeneratePdf(request with { ForPrint = true });
-            await SetProgressAsync(packId, "წიგნს ვინახავთ…", 95, cancellationToken);
-
-            var blobName = $"{pack.UserId}/{pack.Id}.pdf";
-            var pdfUrl = await blobStorageService.UploadAsync(blobName, pdfBytes, "application/pdf", cancellationToken);
-            var printPdfUrl = await blobStorageService.UploadAsync(
-                $"{pack.UserId}/{pack.Id}-print.pdf",
-                printBytes,
-                "application/pdf",
-                cancellationToken);
-
-            // Written down rather than worked out later. The naming rule is ours, but the books
-            // already in the library predate it and have no print file at all — so the only
-            // honest way to know one exists is to record the url that was actually uploaded.
-            await adventurePackRepository.UpdatePrintPdfUrlAsync(packId, printPdfUrl, cancellationToken);
+            // Laid out and thrown away. The pass is kept because a book that cannot be set is a
+            // book that must not be called finished, and this is where that is found out.
+            _ = adventurePdfService.GeneratePdf(request with { ForPrint = false });
+            await SetProgressAsync(packId, "წიგნს ვასრულებთ…", 95, cancellationToken);
 
             var generatedJson = JsonSerializer.Serialize(content, JsonOptions);
 
@@ -761,7 +745,9 @@ public sealed class AdventureGenerationService(
                 expectedStatus,
                 AdventurePackStatus.Completed,
                 generatedJson,
-                pdfUrl,
+                // No file to point at. What this column meant - that the parent may download -
+                // is the release verdict's to answer, and the download endpoint asks it there.
+                null,
                 null,
                 cancellationToken);
 
