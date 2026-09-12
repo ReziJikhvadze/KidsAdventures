@@ -10,7 +10,7 @@ import { useIllustrationUrl } from "@/lib/hooks/useIllustrationUrl";
 import { useT } from "@/lib/i18n";
 import { primaryCharacter, type JourneyDraft } from "@/lib/journey/draft";
 import { BEKI_MARK_WHITE_URL, BRAND_NAME } from "@/lib/brand";
-import { useWorldById, WORLD_COVER_ART, isWorldId, type WorldId } from "@/lib/worlds";
+import { useWorldById, isWorldId, type WorldId } from "@/lib/worlds";
 
 type Props = {
   draft: JourneyDraft;
@@ -64,7 +64,16 @@ export function GeneratingStage({ draft, onChange }: Props) {
     draft.worldId ?? (known?.worldId && isWorldId(known.worldId) ? known.worldId : "dinosaurs");
   const world = WORLD_BY_ID[worldId];
   const storedCover = useIllustrationUrl(draft.preview ? null : known?.coverImageUrl);
-  const coverSrc = draft.preview?.coverImageDataUrl || storedCover || WORLD_COVER_ART[worldId];
+  /*
+    The cover this book actually has, or an empty frame.
+
+    The world's painting stood here as the third fallback, so a parent who had just been
+    shown their own child's cover and paid for it watched the map's stock island being
+    presented as their book. There is no third thing to show: either the cover the preview
+    made is known - from the draft in this tab, or from the order once it answers - or
+    nothing is, and an empty board under a spinner says that without lying about it.
+  */
+  const coverSrc = draft.preview?.coverImageDataUrl || storedCover || null;
   const bookTitle = draft.preview?.title || known?.title?.trim() || world.bookTitle(heroName);
 
   const [step, setStep] = useState(0);
@@ -248,7 +257,7 @@ export function GeneratingStage({ draft, onChange }: Props) {
     from a formula, presented as the book they had just paid for. A spinner says the true
     thing instead, and it is gone the moment either half of the real book arrives.
   */
-  const bookKnown = Boolean(draft.preview || known);
+  const bookKnown = Boolean(artSrc);
 
   if (error) {
     return (
@@ -284,11 +293,13 @@ export function GeneratingStage({ draft, onChange }: Props) {
             <i />
           </div>
           <article className={`ux-book-cover generation-book${bookKnown ? "" : " is-loading"}`}>
-            <div
-              className="ux-cover-art"
-              style={{ backgroundImage: `url("${artSrc}")` }}
-              aria-hidden="true"
-            />
+            {artSrc ? (
+              <div
+                className="ux-cover-art"
+                style={{ backgroundImage: `url("${artSrc}")` }}
+                aria-hidden="true"
+              />
+            ) : null}
             <div className="ux-cover-shade" aria-hidden="true" />
             <img className="ux-cover-brand" src={BEKI_MARK_WHITE_URL} alt={BRAND_NAME} />
             {bookKnown ? (
