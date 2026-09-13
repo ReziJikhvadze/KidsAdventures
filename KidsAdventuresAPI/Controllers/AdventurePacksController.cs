@@ -1106,9 +1106,19 @@ public sealed class AdventurePacksController(
                 ? content.StoryPages.Count
                 : Math.Min(PreviewReadablePages, content.StoryPages.Count);
 
-            // A spread book keeps its cover apart from its pages, so the page-one fallback below
-            // does not apply to it.
-            var isSpreadBook = content.StoryPages.Any(p => p.IsTextOnlyPage);
+            /*
+              A spread book keeps its cover apart from its pages, so the page-one fallback below
+              does not apply to it.
+
+              The pipeline answers first, and the page shapes only stand in for a book it cannot
+              speak for. Asking the pages alone made this flicker: what is stored while a Beki
+              book is being made is the adopted plan, whose pages carry no text-only sibling yet,
+              so the reader was told "not a spread book" and drew the words across the picture -
+              the old layout - until the final projection landed and the spreads covered them
+              over. A Beki book is eight spreads from the moment it is ordered, whatever the row
+              happens to hold at the instant somebody opens it.
+            */
+            var isSpreadBook = pack.IsBekiPipeline || content.StoryPages.Any(p => p.IsTextOnlyPage);
 
             detail.StoryPages = content.StoryPages
                 .Select((page, index) =>

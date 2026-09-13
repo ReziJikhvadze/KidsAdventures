@@ -49,6 +49,7 @@ import { useAuth } from "@/lib/auth/AuthContext";
 import { AddressAutocompleteField } from "@/components/adventrya/journey/AddressAutocompleteField";
 import { LocationPickerDialog } from "@/components/adventrya/journey/LocationPickerDialog";
 import { useIllustrationUrl } from "@/lib/hooks/useIllustrationUrl";
+import { pdfDownloadFinished, pdfDownloadStarted, usePdfDownloading } from "@/lib/pdf/downloading";
 import { continueViaPickerHref, newBookHref } from "@/lib/continue";
 import {
   formatGel,
@@ -1223,7 +1224,16 @@ function BookCard({
   const WORLD_BY_ID = useWorldById();
   const t = useT();
   const [pdfError, setPdfError] = useState<string | null>(null);
-  const [pdfBusy, setPdfBusy] = useState(false);
+  const [ownPdfBusy, setPdfBusy] = useState(false);
+  /*
+    Busy because this card asked, or because the reader did.
+
+    A parent who pressed download in the reader and walked back here found a button that looked
+    untouched, and pressed it again - while the first request was still running, because a
+    client-side move does not cancel a fetch. Both screens report into one place now, so the
+    shelf shows the build it did not start.
+  */
+  const pdfBusy = ownPdfBusy || usePdfDownloading(pack.id);
   /*
     What the build is doing, while it does it.
 
@@ -1248,6 +1258,7 @@ function BookCard({
 
     setPdfBusy(true);
     setPdfProgress({ percent: null, message: null });
+    pdfDownloadStarted(pack.id);
     try {
       /*
         A Beki book has no build to start: the download route composes it for this click. Waiting
@@ -1282,6 +1293,7 @@ function BookCard({
       }
     } finally {
       setPdfBusy(false);
+      pdfDownloadFinished(pack.id);
       setPdfProgress({ percent: null, message: null });
     }
     // The whole pack, not three of its fields: the withheld flag and the failed check both
@@ -1373,7 +1385,10 @@ function BookCard({
         {pdfBusy ? (
           <div className="journey-pdf-progress" role="status" aria-live="polite">
             <small>
-              {pdfProgress.message || t.dashboard.library.pdfBusy}
+              {/* The server's own line while there is one, and what is happening while there is
+                  not. "Preparing" was the button's word doing a second job here, and it named no
+                  subject: this line sits under a card with a print order and a reader on it. */}
+              {pdfProgress.message || t.dashboard.library.pdfGenerating}
               {/* The number, from the number - not from whatever the server happened to write
                   in its message. Suppressed when that message already carries one. */}
               {pdfProgress.percent !== null && !/\d+\s*%/.test(pdfProgress.message ?? "") ? (

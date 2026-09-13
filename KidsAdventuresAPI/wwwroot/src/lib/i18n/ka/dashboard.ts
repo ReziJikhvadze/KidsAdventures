@@ -29,6 +29,7 @@ export const dashboard = {
     readAgain: "ხელახლა",
     readMark: "წაკითხულია",
     pdfBusy: "მზადდება…",
+    pdfGenerating: "PDF გენერირდება…",
     drawing: "წიგნი იხატება…",
     pdfNotReady: "PDF ჯერ მზადდება - სცადე ერთ წუთში.",
     /* The book is finished and the file is deliberately not out yet. Said as a wait, because

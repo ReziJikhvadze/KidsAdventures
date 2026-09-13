@@ -17,6 +17,7 @@ import { useAuth } from "@/lib/auth/AuthContext";
 import { rememberReadLocally } from "@/lib/books-read";
 import { BekiLoader } from "@/components/adventrya/BekiLoader";
 import { useIllustrationUrl } from "@/lib/hooks/useIllustrationUrl";
+import { pdfDownloadFinished, pdfDownloadStarted } from "@/lib/pdf/downloading";
 import { useT } from "@/lib/i18n";
 import { NewBookCharacterContext } from "@/lib/story/newBookCharacter";
 import { useWorldById, isWorldId } from "@/lib/worlds";
@@ -229,6 +230,9 @@ export function ReaderScreen() {
     setDownloading(true);
     setPdfError(null);
     setPdfStarted(false);
+    // Announced app-wide, not just here: the request outlives a move to the shelf, and the shelf
+    // should say so rather than offer the same button again.
+    pdfDownloadStarted(pack.id);
     try {
       let ready = pack;
 
@@ -267,6 +271,7 @@ export function ReaderScreen() {
       setPdfError(message || t.story.reader.pdf.failed);
     } finally {
       setDownloading(false);
+      pdfDownloadFinished(pack.id);
     }
   };
 

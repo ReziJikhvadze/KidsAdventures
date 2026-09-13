@@ -20,6 +20,7 @@ export const dashboard = {
     readAgain: "Read again",
     readMark: "read",
     pdfBusy: "Preparing…",
+    pdfGenerating: "Building the PDF…",
     drawing: "The book is being drawn…",
     pdfNotReady: "The PDF is still being prepared - try again in a minute.",
     downloadHeld: "The book is in its final check - the download opens shortly.",
