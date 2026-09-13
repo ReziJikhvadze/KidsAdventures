@@ -658,6 +658,19 @@
   height: 20px;
   animation: journey-resume-turn 2.4s linear infinite;
 }
+/*
+  The same slot carrying the book's cover instead of the spinner. Taller than it is wide, because
+  a book is, and a square crop of a portrait cover loses the child who is standing in the middle
+  of it.
+*/
+.journey-resume-cover {
+  width: 48px;
+  height: 62px;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  box-shadow: 0 6px 16px rgb(19 13 41 / 28%);
+}
 @keyframes journey-resume-turn {
   to {
     transform: rotate(360deg);

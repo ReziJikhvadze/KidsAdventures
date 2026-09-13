@@ -36,6 +36,7 @@ public sealed class AdventurePacksController(
     IOptions<ClientIpOptions> clientIpOptions,
     ICharacterRepository characterRepository,
     IMasterStoryRunRepository masterStoryRunRepository,
+    IOrderRepository orderRepository,
     IBekiPackFulfillment bekiFulfillment,
     IAdventurePdfService adventurePdfService,
     ILogger<AdventurePacksController> logger) : ControllerBase
@@ -683,13 +684,30 @@ public sealed class AdventurePacksController(
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<AdventurePackResponse>>> Get(CancellationToken cancellationToken)
     {
-        var rows = await adventurePackRepository.GetByUserIdAsync(userContext.GetUserId(), cancellationToken);
+        var userId = userContext.GetUserId();
+        var rows = await adventurePackRepository.GetByUserIdAsync(userId, cancellationToken);
+
+        /*
+          Every order this parent has, once, so each book can name the one it was bought on.
+
+          One query for the shelf rather than one per card: the shelf is the page that shows a
+          book being drawn, and the address of the screen that watches it is built from the order.
+          Newest wins where a book has more than one - a print upgrade adds a second order against
+          the same book, and the first is the one that had the book made.
+        */
+        var orders = await orderRepository.GetByUserIdAsync(userId, cancellationToken);
+        var orderByBook = orders
+            .Where(order => order.BookId is not null)
+            .OrderBy(order => order.CreatedAt)
+            .GroupBy(order => order.BookId!.Value)
+            .ToDictionary(group => group.Key, group => group.First().Id);
 
         var responses = new List<AdventurePackResponse>(rows.Count);
         foreach (var row in rows)
         {
             var response = Map(row);
             response.DownloadHeld = await DownloadHeldAsync(row, cancellationToken);
+            response.OrderId = orderByBook.TryGetValue(row.Id, out var orderId) ? orderId : null;
             responses.Add(response);
         }
 

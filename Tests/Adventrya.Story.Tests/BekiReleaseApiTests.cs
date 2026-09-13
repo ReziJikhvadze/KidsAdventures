@@ -480,6 +480,7 @@ public class BekiReleaseApiTests
             Options.Create(new ClientIpOptions()),
             new FakeCharacters(),
             new FakeRuns(),
+            new FakeOrders(),
             new FakeFulfillment(),
             new FakePdf(),
             NullLogger<AdventurePacksController>.Instance)
@@ -722,6 +723,30 @@ public class BekiReleaseApiTests
     /// interface default throws - which is the case the controller answers by falling back to
     /// the stored file, exactly as it does for a book drawn before the current contract.
     /// </summary>
+    /// <summary>
+    /// No orders. The shelf reads them to put an order id on each book, so the card that shows a
+    /// book being drawn can address the screen that watches it; nothing here tests that, and a
+    /// book with no order simply gets a null.
+    /// </summary>
+    private sealed class FakeOrders : IOrderRepository
+    {
+        public Task<IReadOnlyList<Order>> GetByUserIdAsync(Guid userId, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyList<Order>>([]);
+
+        public Task<Guid> CreateAsync(Order order, CancellationToken ct) => throw new NotSupportedException();
+        public Task<Order?> GetByIdAsync(Guid id, CancellationToken ct) => throw new NotSupportedException();
+        public Task<Order?> GetByIdForUserAsync(Guid id, Guid userId, CancellationToken ct) => throw new NotSupportedException();
+        public Task<Order?> GetByProviderSessionIdAsync(string providerSessionId, CancellationToken ct) => throw new NotSupportedException();
+        public Task<IReadOnlyList<Order>> GetPaidForBookAsync(Guid bookId, CancellationToken ct) => throw new NotSupportedException();
+        public Task AttachProviderSessionAsync(Guid id, string providerSessionId, CancellationToken ct) => throw new NotSupportedException();
+        public Task SetBookIdAsync(Guid id, Guid bookId, CancellationToken ct) => throw new NotSupportedException();
+        public Task<bool> TryMarkPaidAsync(Guid id, string? providerPaymentIntentId, CancellationToken ct) => throw new NotSupportedException();
+        public Task<bool> TryMarkFulfilledAsync(Guid id, CancellationToken ct) => throw new NotSupportedException();
+        public Task MarkFailedAsync(Guid id, string reason, CancellationToken ct) => throw new NotSupportedException();
+        public Task<bool> TryCancelAsync(Guid id, Guid userId, CancellationToken ct) => throw new NotSupportedException();
+        public Task<IReadOnlyList<Order>> GetStalledPaidAsync(DateTime paidBeforeUtc, int limit, CancellationToken ct) => throw new NotSupportedException();
+    }
+
     private sealed class FakeFulfillment : IBekiPackFulfillment
     {
         public Task ProcessAsync(Guid packId, Guid runId, CancellationToken cancellationToken) =>

@@ -57,7 +57,6 @@ import {
   normalizeGeorgianPhone,
   useT,
 } from "@/lib/i18n";
-import { MERCHANT } from "@/lib/merchant";
 import { DELIVERY_DAYS, PRICES } from "@/lib/pricing";
 import { readPendingRun, savedCharacterIdOf, type PendingRun } from "@/lib/journey/pendingRun";
 import { useWorldById, WORLD_COVER_ART, WORLD_IDS, isWorldId, type WorldId } from "@/lib/worlds";
@@ -1035,11 +1034,23 @@ function DrawingCard({ pack, heroName }: { pack: AdventurePackResponse; heroName
   const title = pack.title?.trim() || world.bookTitle(heroName);
   const percent = typeof pack.progressPercent === "number" ? pack.progressPercent : null;
 
+  /*
+    The book's own picture while it is being made, rather than a spinner.
+
+    The painted cover the moment the pipeline stores one, and the world's own art until then -
+    the same fallback `PreviewCard` uses a few lines down, so a book has a face from the first
+    second it exists. The progress bar underneath is what says it is still working; a loader in
+    the picture's place said that twice and showed the parent nothing.
+  */
+  const cover = useIllustrationUrl(pack.coverImageUrl) ?? WORLD_COVER_ART[worldId];
+
   return (
     <div className="journey-resume journey-resume-drawing" role="status" aria-live="polite">
-      <span className="journey-resume-spark" aria-hidden="true">
-        <Loader2 />
-      </span>
+      <span
+        className="journey-resume-spark journey-resume-cover"
+        style={{ backgroundImage: `url("${cover}")` }}
+        aria-hidden="true"
+      />
       <div className="journey-resume-copy">
         <strong>{title}</strong>
         <small>{pack.progressMessage || t.dashboard.library.drawing}</small>
@@ -1048,6 +1059,26 @@ function DrawingCard({ pack, heroName }: { pack: AdventurePackResponse; heroName
         </span>
       </div>
       {percent !== null ? <strong className="journey-resume-percent">{percent}%</strong> : null}
+      {/*
+        The way back into the book being made.
+
+        `/create?orderId=` resumes straight into the generating stage - the same screen a parent
+        returning from the bank lands on, which shows each spread as it is painted rather than a
+        percentage. The card announced a book and then offered no way to go and watch it.
+
+        Only when the order is known. A welcome-gift book has none, and there is no screen to
+        send that parent to; the progress bar above is the whole of what we can tell them.
+      */}
+      {pack.orderId ? (
+        <Link
+          className="journey-button journey-resume-button"
+          to="/create"
+          search={{ orderId: pack.orderId }}
+        >
+          {t.story.world.resumeAction}
+          <ArrowRight aria-hidden="true" />
+        </Link>
+      ) : null}
     </div>
   );
 }
@@ -1618,17 +1649,34 @@ function FailedBookCard({ pack, heroName }: { pack: AdventurePackResponse; heroN
         </div>
         <div>
           <h3>{t.dashboard.library.failedTitle}</h3>
-          <p>{pack.errorMessage || t.dashboard.library.failedBody}</p>
+          {/*
+            Our sentence, never the pipeline's.
+
+            `pack.errorMessage` stood here and won whenever there was one, so what a parent who had
+            paid actually read was the operator's diagnostic: "PRINT_PREFLIGHT_FAILED:
+            RENDER_VALIDATION: canonical-book's evidence could not be stored (Ghostscript
+            skipped...)". English, with tooling internals in it, on the card telling somebody their
+            child's book did not arrive. The message is what the alarm and the console are for, and
+            they both already have it.
+          */}
+          <p>{t.dashboard.library.failedBody}</p>
         </div>
         <div className="journey-book-actions">
-          <a
+          {/*
+            Into the form rather than out to a mail client.
+
+            `mailto:` needs a mail app the browser knows about, and on a phone browser or a machine
+            with none the button did nothing at all - on the one card where a parent most needs to
+            reach somebody. The form posts to the same inbox, and carrying the book's id means the
+            operator opens the right book instead of asking which one.
+          */}
+          <Link
             className="journey-button journey-small-button journey-gold-button"
-            // The merchant's address, so a parent whose book failed writes to the inbox that is
-            // actually answered rather than to a third address this button used to own.
-            href={`mailto:${MERCHANT.email}`}
+            to="/contact"
+            search={{ bookId: pack.id }}
           >
             {t.dashboard.library.failedCta}
-          </a>
+          </Link>
         </div>
       </div>
     </article>

@@ -230,6 +230,8 @@ export type AdventurePackResponse = {
    * honest instead of asking for a PDF that will be refused in English.
    */
   downloadHeld?: "review" | "gates" | null;
+  /** The order this book was bought on, when it has one. Addresses the generating screen. */
+  orderId?: string | null;
 };
 
 export type AdventurePackDetailResponse = AdventurePackResponse & {

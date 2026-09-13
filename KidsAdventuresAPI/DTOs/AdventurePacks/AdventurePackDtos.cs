@@ -119,6 +119,19 @@ public class AdventurePackResponse
     /// which on this path was an English sentence about a state the book was not in.
     /// </summary>
     public string? DownloadHeld { get; set; }
+
+    /// <summary>
+    /// The order this book was bought on, so the shelf can send a parent back to it being made.
+    ///
+    /// The generating screen is addressed by order - `/create?orderId=` resumes straight into it,
+    /// which is how a parent returning from the bank lands back on their book - and the shelf had
+    /// no way to build that address. A card could say a book was being drawn and offer no way to
+    /// go and watch it.
+    ///
+    /// Null for a book with no order against it: the welcome gift, and anything made before the
+    /// two were linked.
+    /// </summary>
+    public Guid? OrderId { get; set; }
 }
 
 public sealed class AdventurePackDetailResponse : AdventurePackResponse

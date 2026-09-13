@@ -9,11 +9,18 @@ import { SocialLinks } from "@/components/brand/SocialLinks";
 import { MerchantDetails } from "@/components/site/MerchantDetails";
 import { useT } from "@/lib/i18n";
 
-export function Contact() {
+/**
+ * @param bookId The book this parent came here about, when the failed-book card sent them.
+ *   Seeds the message with the reference so the operator opens the right book, and so the parent
+ *   is not asked to copy an id out of an address bar.
+ */
+export function Contact({ bookId }: { bookId?: string } = {}) {
   const c = useT().common.contactForm;
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState(
+    bookId ? `წიგნის ნომერი: ${bookId}\n\n` : "",
+  );
   const [company, setCompany] = useState("");
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
