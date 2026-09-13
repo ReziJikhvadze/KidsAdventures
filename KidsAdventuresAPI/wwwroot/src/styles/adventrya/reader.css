@@ -1306,6 +1306,30 @@
     right: 14px;
     bottom: 14px;
   }
+  /*
+    ── The arrows go under the book, not across it ──
+
+    They are absolutely positioned over the board and centred at `top: 50%`, which is right while
+    the board is the picture and nothing else. On a phone the board is the picture *and* the card
+    of words beneath it, so half way down lands inside that card - and the card is z-index 5, in
+    front. The arrows were still being drawn and could be neither seen nor pressed.
+
+    Back into the flow, in the order the home page's own spread puts them: picture, words, arrows.
+    The grid they sit in is already three columns, so they land either side of the page counter.
+  */
+  .reader-shell-book .storybook.is-narrow-spread .storybook-controls {
+    position: static;
+    inset: auto;
+    width: 100%;
+    margin-top: 12px;
+    pointer-events: auto;
+  }
+  .reader-shell-book .storybook.is-narrow-spread .storybook-controls button {
+    position: static;
+    width: 48px;
+    height: 48px;
+    justify-self: center;
+  }
 }
 
 @media (max-width: 780px) {

@@ -1591,7 +1591,15 @@ export function StorybookVolume({
             aria-label={t.story.storybook.nextPage}
           />
         ) : null}
-        {interactive && !fullscreen && variant === "hero" ? (
+        {/*
+          Full screen from the reader as well as the home page.
+
+          A spread on a phone is 375px of picture across, about 170 tall, and this button is the
+          only way to see it any bigger - the same button the home page's sample carries. It was
+          the sample's alone, so the one place a parent reads the book they bought was the one
+          place they could not open it out.
+        */}
+        {interactive && !fullscreen && (variant === "hero" || variant === "full") ? (
           <button
             type="button"
             className="storybook-expand"
