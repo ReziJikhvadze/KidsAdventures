@@ -1317,18 +1317,36 @@
     Back into the flow, in the order the home page's own spread puts them: picture, words, arrows.
     The grid they sit in is already three columns, so they land either side of the page counter.
   */
+  /*
+    A pair, centred, rather than two buttons in a grid that has lost its middle.
+
+    The row is `1fr auto 1fr` with the page counter in the middle, and the reader takes that
+    counter out of the flow to sit under the book - so nothing occupies the middle track and
+    auto-placement drops the second arrow into it. One arrow ended up centred on the page and
+    the other half a screen to its left, which is what "centre these two" was about.
+
+    Flex ignores the absented counter entirely and centres what is actually there. The sizes are
+    stated on both rather than inherited: the shared rule gives a button `width: 100%` inside its
+    track and a 148px cap, and neither means anything to a 48px circle.
+  */
   .reader-shell-book .storybook.is-narrow-spread .storybook-controls {
     position: static;
     inset: auto;
     width: 100%;
+    display: flex;
+    justify-content: center;
+    gap: 18px;
     margin-top: 12px;
     pointer-events: auto;
   }
   .reader-shell-book .storybook.is-narrow-spread .storybook-controls button {
     position: static;
+    flex: 0 0 auto;
     width: 48px;
     height: 48px;
-    justify-self: center;
+    min-height: 0;
+    max-width: none;
+    padding: 0;
   }
 }
 
