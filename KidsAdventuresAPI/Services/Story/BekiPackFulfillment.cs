@@ -866,6 +866,24 @@ public sealed class BekiPackFulfillment(
             throw;
         }
 
+        /*
+          The verdict this run just wrote, recorded on the row.
+
+          Re-preparation exists to change a book's mind about printing, and it stored the new
+          verdict and stopped there - so a press stage that had just fixed the thing holding the
+          printer left `PressFilesReleased` exactly as it found it. The print queue's guard reads
+          that flag, so the parcel stayed stuck behind a verdict that no longer said stop, and the
+          only way to shift it was an approval the operator had no reason to give again.
+
+          Through the shared publisher in its locked form, like the fulfilment job and recovery:
+          this method is holding the pack's lock already, and the compare-and-set that decides
+          whether this caller is the one that released the book belongs in one place.
+        */
+        if (reconciliation is not null)
+        {
+            await reconciliation.PublishUnlockedFilesLockedAsync(pack, release, cancellationToken);
+        }
+
         await ResolvePrintHoldAlarmsAsync(pack, work, "print re-preparation", cancellationToken);
         logger.LogInformation(
             "Beki pack {PackId}: print re-prepared from stored artwork ({Mode}, normalizer "
