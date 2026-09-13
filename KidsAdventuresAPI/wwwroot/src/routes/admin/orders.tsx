@@ -396,6 +396,22 @@ function OrderDetail({
   onClose: () => void;
   onChanged: () => void;
 }) {
+  /*
+    The panel opens below the whole table, so on a list of any length it opens off-screen.
+
+    Being under the table is deliberate: inside it, the panel inherited the table's 1300px minimum
+    and the action buttons sat off the right edge. But it means clicking the top row of forty-two
+    puts the answer several screens down, and the click reads as having done nothing at all. It
+    had done everything - the order, its release gates and its alarms were all fetched, which is
+    exactly what the network tab showed.
+
+    Brought into view on open. The panel is keyed on the order id upstream, so this runs again for
+    each row rather than only the first one opened.
+  */
+  const panelRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    panelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, []);
   const [detail, setDetail] = useState<admin.AdminOrderDetail | null>(null);
   const [gates, setGates] = useState<admin.AdminReleaseGates | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -485,14 +501,14 @@ function OrderDetail({
 
   if (error && !detail) {
     return (
-      <div className="panel order-detail-panel">
+      <div className="panel order-detail-panel" ref={panelRef}>
         <p className="empty-state">{error}</p>
       </div>
     );
   }
   if (!detail) {
     return (
-      <div className="panel order-detail-panel">
+      <div className="panel order-detail-panel" ref={panelRef}>
         <p className="empty-state">იტვირთება…</p>
       </div>
     );
@@ -505,7 +521,7 @@ function OrderDetail({
   const openAlarms = (detail.alarms ?? []).filter((a) => !a.reviewedAtUtc);
 
   return (
-    <div className="panel order-detail-panel" id={`order-${orderId}`}>
+    <div className="panel order-detail-panel" id={`order-`} ref={panelRef}>
       <div className="order-detail-head">
         <div>
           <h2>{book?.title || summary?.bookTitle || "შეკვეთა"}</h2>
