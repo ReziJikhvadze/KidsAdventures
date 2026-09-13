@@ -315,7 +315,7 @@ public class BekiReleaseApiTests
         // The question reads a stored verdict out of blob storage. Asking it about every finished
         // book on a shelf would be one blob read per card for an answer that is always null.
         var pack = Pack(AdventurePackStatus.Completed, GenerationPipelines.Beki);
-        pack.PdfUrl = "packs/reading.pdf";
+        pack.CustomerPdfReleased = true;
 
         var status = new FakeDownloadStatus { Held = BekiDownloadHeld.Gates };
         var rows = await Ok<IReadOnlyList<AdventurePackResponse>>(

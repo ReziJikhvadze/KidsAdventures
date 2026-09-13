@@ -1025,14 +1025,17 @@ public sealed class AdventurePacksController(
     /// <summary>
     /// Why this book's download is not there, asked only of the books it could be true of.
     ///
-    /// A Completed pack with no reading PDF is the withheld case and nothing else is, so the
+    /// A Completed pack that has not been released is the withheld case and nothing else is, so the
     /// question — which reads a stored verdict out of blob storage — is asked for those rows and
     /// skipped for every other one. On a shelf of finished books that is zero extra reads; on the
     /// one card that cannot download, it is the only way to say why.
+    ///
+    /// The test was "no reading PDF", which stopped selecting anything once no book keeps one: every
+    /// finished book on every shelf took a blob read to be told it was fine.
     /// </summary>
     private async Task<string?> DownloadHeldAsync(AdventurePack pack, CancellationToken cancellationToken)
     {
-        if (pack.Status != AdventurePackStatus.Completed || !string.IsNullOrWhiteSpace(pack.PdfUrl))
+        if (pack.Status != AdventurePackStatus.Completed || pack.CustomerPdfReleased)
         {
             return null;
         }

@@ -89,7 +89,7 @@ public sealed class AdminReportingRepository(
          AND (al.OpenAlarmCount > 0
               OR b.Status = N'Failed'
               OR (o.Status = N'Paid' AND o.FulfilledAt IS NULL)
-              OR (b.Status = N'Completed' AND b.PdfUrl IS NULL)))
+              OR (b.Status = N'Completed' AND b.CustomerPdfReleased = 0)))
         """;
 
     /// <summary>
@@ -283,8 +283,8 @@ public sealed class AdminReportingRepository(
                    b.ErrorMessage, b.CreatedAt, b.LastReadAt,
                    b.GenerationPipeline, b.ProgressPercent, b.PrimaryCharacterId,
                    b.GenerationHeartbeatUtc AS HeartbeatUtc,
-                   CAST(CASE WHEN b.PdfUrl IS NOT NULL THEN 1 ELSE 0 END AS BIT) AS HasReadingPdf,
-                   CAST(CASE WHEN b.PrintPdfUrl IS NOT NULL THEN 1 ELSE 0 END AS BIT) AS HasPrintPdf,
+                   b.CustomerPdfReleased AS HasReadingPdf,
+                   b.PressFilesReleased AS HasPrintPdf,
                    CAST(CASE WHEN {GeneratingPredicate} AND {SilentPredicate}
                              THEN 1 ELSE 0 END AS BIT) AS IsStale
             FROM dbo.AdventurePacks b

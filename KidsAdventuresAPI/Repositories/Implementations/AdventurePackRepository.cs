@@ -858,8 +858,10 @@ public sealed class AdventurePackRepository(ISqlConnectionFactory connectionFact
                    FROM AdventurePacks
                    WHERE GenerationPipeline = @Beki
                      AND Status = @Completed
-                     AND ((PdfUrl IS NULL OR LEN(LTRIM(RTRIM(PdfUrl))) = 0)
-                          OR (PrintPdfUrl IS NULL OR LEN(LTRIM(RTRIM(PrintPdfUrl))) = 0))
+                     -- The flags, not the urls. Those are empty on every book now, so this matched
+                     -- the whole finished catalogue and publishing one no longer removed it: the
+                     -- cursor above depends on the predicate shrinking, and it had stopped doing so.
+                     AND (CustomerPdfReleased = 0 OR PressFilesReleased = 0)
                      AND (@AfterCreatedAt IS NULL
                           OR CreatedAt < @AfterCreatedAt
                           OR (CreatedAt = @AfterCreatedAt AND Id < @AfterId))
