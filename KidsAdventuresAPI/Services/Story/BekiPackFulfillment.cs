@@ -647,8 +647,22 @@ public sealed class BekiPackFulfillment(
         var book = await LoadStoredBookAsync(pack, cancellationToken);
         var hashes = await VerifyAssetLockAsync(pack, cancellationToken);
         var work = new PressWork { ArtworkContractDrift = book.ContractDrift };
+
+        /*
+          Built for the press, which is the file this method exists to hand over.
+
+          The flag was not passed, so the build took its default and went down the customer path -
+          and the first thing that path does is fail the press-resolution gate with "Printing has
+          not been requested. Use Upscale for printing in admin." The refusal below then threw on
+          the gate this call had just added to itself. The button could not succeed at any time,
+          for any book, however many times an operator ran the re-preparation the message told them
+          to run: this rebuilds from the artwork every time and was rebuilding in the wrong mode
+          every time. The two documents are not the same object either - a press build of one book
+          measured 52.6 MB against the 26.4 MB this was producing.
+        */
         var candidate = await BuildPdfCandidateAsync(pack, book.Plan, book.Spreads,
-            book.Personalization, book.WrapComposite, hashes, work, cancellationToken);
+            book.Personalization, book.WrapComposite, hashes, work, cancellationToken,
+            prepareForPrint: true);
 
         /*
           A refused measurement is a refused file.
