@@ -869,8 +869,20 @@ export function StorybookVolume({
     second turn reveals the payment message, on a phone as well as desktop.
   */
   const heroSpread = variant === "hero" && fullBleedSpreads;
+  /*
+    The reader keeps the spread on a phone, as the home page and the preview already do.
+
+    It was the one screen left out. Below 781px `full` fell back to a leaf at a time, so the book
+    a parent had been sold as one picture across two pages was shown to them half at a time, cut
+    down the middle - on the screen where they actually read it, and after the preview had shown
+    them the whole thing. The only way to see a spread whole was the full-screen button, which is
+    a thing to discover rather than the way a book opens.
+
+    `display` stays out: it is the still, small copy on a card, where a leaf is the whole point.
+  */
   const desktopSpread =
-    variant !== "display" && (wideViewport || heroSpread || variant === "preview" || fullscreen);
+    variant !== "display" &&
+    (wideViewport || fullscreen || heroSpread || variant === "preview" || variant === "full");
   /*
     The phone's open book: both leaves at the width of the screen, and the words under the
     picture rather than on it — a panel on a painting 170px tall is not something anyone reads.
