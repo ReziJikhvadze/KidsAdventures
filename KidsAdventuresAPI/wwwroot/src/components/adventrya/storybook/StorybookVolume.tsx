@@ -4,9 +4,14 @@ import { ChevronLeft, ChevronRight, Lock, Maximize2, X } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 
 import { BekiMark } from "@/components/brand/BekiMark";
-import { preloadIllustration, useIllustrationUrl } from "@/lib/hooks/useIllustrationUrl";
+import {
+  preloadIllustration,
+  useIllustrationState,
+  useIllustrationUrl,
+} from "@/lib/hooks/useIllustrationUrl";
 import { useMediaQuery } from "@/lib/hooks/useMediaQuery";
 import { useT } from "@/lib/i18n";
+import { BekiLoader } from "@/components/adventrya/BekiLoader";
 import { WORLD_COVER_ART, type WorldId, isWorldId } from "@/lib/worlds";
 import type { StoryPageContent } from "@/lib/api/types";
 import { NewBookCharacterContext, NewBookReturnContext } from "@/lib/story/newBookCharacter";
@@ -309,18 +314,36 @@ function CoverFace({
   title,
   caption,
   coverSrc,
+  coverPending = false,
   artCarriesItsOwnType = false,
 }: {
   heroName: string;
   title: string;
   caption?: string;
   coverSrc: string;
+  coverPending?: boolean;
   artCarriesItsOwnType?: boolean;
 }) {
   const t = useT();
   return (
     <article className="storybook-cover">
-      <div className="storybook-cover-art" style={{ backgroundImage: `url("${coverSrc}")` }} />
+      {/*
+        Nothing, rather than another book's painting.
+
+        `coverSrc` falls back to the world's stock art when the child's cover has not arrived, and
+        on a reload that fallback is what a parent sees first: the theme's picture presented as the
+        cover of their book, until the real one loads a second later. Their own cover is the thing
+        they are opening the page to see, and showing a different painting in its place - even
+        briefly - is worse than showing none. The fallback still stands for a book that genuinely
+        has no cover of its own; this is only the wait.
+      */}
+      {coverPending ? (
+        <div className="storybook-cover-art is-pending">
+          <BekiLoader size={26} />
+        </div>
+      ) : (
+        <div className="storybook-cover-art" style={{ backgroundImage: `url("${coverSrc}")` }} />
+      )}
       {/* A finished cover is the whole face. See `coverCarriesItsOwnType`. */}
       {artCarriesItsOwnType ? null : (
         <>
@@ -532,6 +555,7 @@ function LeafView({
   coverCaption,
   coverCarriesItsOwnType,
   coverSrc,
+  coverPending,
   backSrc,
   pageSide,
   totalStoryPages,
@@ -543,6 +567,7 @@ function LeafView({
   coverCaption?: string;
   coverCarriesItsOwnType?: boolean;
   coverSrc: string;
+  coverPending?: boolean;
   backSrc?: string | null;
   pageSide?: "left" | "right";
   totalStoryPages: number;
@@ -562,6 +587,7 @@ function LeafView({
         title={title}
         caption={coverCaption}
         coverSrc={coverSrc}
+        coverPending={coverPending}
         artCarriesItsOwnType={coverCarriesItsOwnType}
       />
     );
@@ -736,6 +762,7 @@ function SpreadSlot({
   coverCaption,
   coverCarriesItsOwnType,
   coverSrc,
+  coverPending,
   backSrc,
   totalStoryPages,
   isSpreadBook,
@@ -748,13 +775,16 @@ function SpreadSlot({
   coverCaption?: string;
   coverCarriesItsOwnType?: boolean;
   coverSrc: string;
+  coverPending?: boolean;
   backSrc?: string | null;
   totalStoryPages: number;
   isSpreadBook: boolean;
 }) {
   // Called on every render and with null whenever this half is not a candidate: the branch below
   // is a branch, not a reason for a hook to disappear.
-  const artUrl = useIllustrationUrl(plan.pair ? plan.pair.art.page.illustrationUrl : null);
+  const { url: artUrl, pending: artPending } = useIllustrationState(
+    plan.pair ? plan.pair.art.page.illustrationUrl : null,
+  );
   const artShape = useArtShape(artUrl);
   // A plate is already a painting cut in two; it needs neither the URL resolution nor the
   // shape probe that a story illustration does, so it is drawn straight from its leaf.
@@ -765,15 +795,21 @@ function SpreadSlot({
     );
   }
   /*
-    Measured, or nothing.
+    Fetched and measured, or nothing.
 
-    A pair whose picture has not been measured yet could be either book - one painting across the
-    fold, or a page with its words on it - and drawing the second one while waiting is what put a
-    paragraph of the old format on screen for a moment on every first turn. Blank paper says the
-    same thing honestly: the page is coming. It lasts as long as one image takes to report its
-    own width, once per illustration for the life of the page.
+    A pair whose picture is not in hand could be either book - one painting across the fold, or a
+    page with its words on it - and drawing the second one while waiting is what put a paragraph
+    of the old format on screen for a moment on every first turn. Blank paper says the same thing
+    honestly: the page is coming.
+
+    This waited only on the measurement, and so only covered the half of the wait that starts once
+    the image is already downloaded. The download is the longer half, and through it `artUrl` was
+    null and the old format went up exactly as before - which is the flash that kept being
+    reported after this was supposedly fixed. `pending` is the difference between a picture on its
+    way and one that is not coming: a fetch that actually failed falls through to the leaf below,
+    so a book with a missing illustration still shows its words rather than a blank sheet.
   */
-  if (plan.pair && artUrl && artShape === null) {
+  if (plan.pair && (artPending || (artUrl && artShape === null))) {
     return <article className="storybook-page storybook-page-blank" aria-hidden="true" />;
   }
   // The side comes from the slot rather than from a guess about which one runs out: it is almost
@@ -787,6 +823,7 @@ function SpreadSlot({
       coverCaption={coverCaption}
       coverCarriesItsOwnType={coverCarriesItsOwnType}
       coverSrc={coverSrc}
+      coverPending={coverPending}
       backSrc={backSrc}
       pageSide={pageSide}
       totalStoryPages={totalStoryPages}
@@ -909,7 +946,8 @@ export function StorybookVolume({
   const [turnTo, setTurnTo] = useState<number | null>(null);
   const timers = useRef<number[]>([]);
   const swipeX = useRef<number | null>(null);
-  const resolvedCover = useIllustrationUrl(coverImageUrl) ?? fallbackCover(worldId);
+  const { url: paintedCover, pending: coverPending } = useIllustrationState(coverImageUrl);
+  const resolvedCover = paintedCover ?? fallbackCover(worldId);
   const totalStoryPages = pages.length + lockedPageCount;
 
   useEffect(() => () => timers.current.forEach((id) => window.clearTimeout(id)), []);
@@ -1262,6 +1300,7 @@ export function StorybookVolume({
       coverCaption={coverCaption}
       coverCarriesItsOwnType={coverCarriesItsOwnType}
       coverSrc={resolvedCover}
+      coverPending={coverPending}
       backSrc={backImageUrl}
       totalStoryPages={totalStoryPages}
       isSpreadBook={isSpreadBook}

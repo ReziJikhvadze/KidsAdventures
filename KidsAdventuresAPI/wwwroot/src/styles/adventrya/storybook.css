@@ -227,6 +227,20 @@
   user-select: none;
   filter: drop-shadow(0 2px 9px rgba(5, 2, 17, 0.75));
 }
+/*
+  The cover board while its painting is on its way.
+
+  No picture at all rather than the world's stock one, which is what the fallback would put here:
+  the board's own paper with the mark turning on it. Absolute so it fills the face the painting
+  would have filled, and behind the type, which keeps its place either way.
+*/
+.storybook-cover-art.is-pending {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(160deg, #2a1d55 0%, #1b1238 100%);
+}
 .storybook-cover-copy {
   position: relative;
   z-index: 3;

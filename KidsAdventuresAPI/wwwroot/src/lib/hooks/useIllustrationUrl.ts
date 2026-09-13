@@ -156,3 +156,37 @@ export function useIllustrationUrl(path: string | null | undefined): string | nu
 
   return url;
 }
+
+/**
+ * The same fetch, and whether it is still trying.
+ *
+ * `useIllustrationUrl` answers null for three different situations - nothing was asked for, it is
+ * being fetched, and it could not be fetched - and callers that have something to show in the
+ * meantime need to tell them apart. A picture on its way is worth waiting a moment for; a picture
+ * that is not coming is not, and the caller should draw whatever it draws without one.
+ */
+export function useIllustrationState(path: string | null | undefined): {
+  url: string | null;
+  pending: boolean;
+} {
+  const url = useIllustrationUrl(path);
+  const [failed, setFailed] = useState<string | null>(null);
+
+  useEffect(() => {
+    // A public path is its own answer and never fetched; only an /api/ one can fail.
+    if (!path || isPublicIllustrationUrl(path)) return;
+    let cancelled = false;
+    // Cached paths resolve immediately and the in-flight map means this joins the request the
+    // hook above already made rather than starting a second one.
+    void load(path).catch(() => {
+      if (!cancelled) setFailed(path);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [path]);
+
+  if (!path) return { url: null, pending: false };
+  if (url) return { url, pending: false };
+  return { url: null, pending: failed !== path };
+}
