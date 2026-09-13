@@ -18,9 +18,7 @@ export function Contact({ bookId }: { bookId?: string } = {}) {
   const c = useT().common.contactForm;
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [message, setMessage] = useState(
-    bookId ? `წიგნის ნომერი: ${bookId}\n\n` : "",
-  );
+  const [message, setMessage] = useState(bookId ? `წიგნის ნომერი: ${bookId}\n\n` : "");
   const [company, setCompany] = useState("");
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);

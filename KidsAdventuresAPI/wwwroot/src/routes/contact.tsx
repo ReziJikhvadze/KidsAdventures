@@ -16,7 +16,8 @@ export const Route = createFileRoute("/contact")({
     page is also reached from the footer by people with nothing to reference.
   */
   validateSearch: (search: Record<string, unknown>): { bookId?: string } => ({
-    bookId: typeof search.bookId === "string" && search.bookId.length > 0 ? search.bookId : undefined,
+    bookId:
+      typeof search.bookId === "string" && search.bookId.length > 0 ? search.bookId : undefined,
   }),
   head: () => {
     const { meta, links } = buildPageMeta({
