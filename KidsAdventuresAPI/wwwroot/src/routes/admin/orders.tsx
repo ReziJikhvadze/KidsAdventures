@@ -851,6 +851,25 @@ function OrderDetail({
           ) : null}
 
           {notice ? <span className="cell-subtitle detail-notice">{notice}</span> : null}
+
+          {/*
+            The press stage takes minutes, and a greyed-out button is the same picture as a broken
+            one. This says the work is running and roughly what it is doing.
+
+            No number: `RepreparePrintAsync` is one POST that answers when it has finished, and it
+            writes no progress anywhere on the way. A percentage here would be invented, which on a
+            stage that can also refuse is worse than no percentage - an operator watching a bar
+            crawl to 90 and stop would read a refusal as a hang. The bar sweeps instead, which is
+            the same thing the parent's PDF does while it has no number either.
+          */}
+          {action === "reprepare-print" ? (
+            <div className="detail-progress" role="status" aria-live="polite">
+              <small>ბეჭდვის ფაილი მზადდება - ნორმალიზაცია, CMYK და გეითები. რამდენიმე წუთი.</small>
+              <span className="detail-progress-bar" data-indeterminate aria-hidden="true">
+                <i />
+              </span>
+            </div>
+          ) : null}
         </div>
 
         {/*

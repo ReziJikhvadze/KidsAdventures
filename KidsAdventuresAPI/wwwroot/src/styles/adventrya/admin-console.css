@@ -1436,6 +1436,57 @@
   color: var(--success);
 }
 
+/*
+  A stage that is running, with no number to give.
+
+  The press re-preparation answers once, at the end, and writes nothing on the way - so the bar
+  sweeps rather than fills. Same shape and same reasoning as the parent's PDF bar in
+  world-journey.css; separate because the two consoles share no variables.
+*/
+.admin-app .detail-progress {
+  flex-basis: 100%;
+  margin-top: 4px;
+}
+.admin-app .detail-progress small {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+.admin-app .detail-progress-bar {
+  display: block;
+  overflow: hidden;
+  width: 100%;
+  height: 4px;
+  border-radius: 999px;
+  background: rgb(148 163 184 / 22%);
+}
+.admin-app .detail-progress-bar > i {
+  display: block;
+  width: 38%;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent, #e9b95f);
+}
+.admin-app .detail-progress-bar[data-indeterminate] > i {
+  animation: admin-progress-sweep 1.5s ease-in-out infinite;
+}
+@keyframes admin-progress-sweep {
+  0% {
+    margin-left: -38%;
+  }
+  100% {
+    margin-left: 100%;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .admin-app .detail-progress-bar[data-indeterminate] > i {
+    width: 100%;
+    animation: none;
+    opacity: 0.5;
+  }
+}
+
 .admin-app .book-strip {
   display: flex;
   flex-wrap: wrap;
