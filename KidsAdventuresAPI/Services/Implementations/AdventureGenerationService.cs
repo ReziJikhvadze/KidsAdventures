@@ -28,8 +28,7 @@ public sealed class AdventureGenerationService(
     IStoryRuleRepository storyRuleRepository,
     IOptions<EmailOptions> emailOptions,
     IOptions<OpenAiOptions> openAiOptions,
-    ILogger<AdventureGenerationService> logger,
-    IBekiDownloadStatusService? downloadStatus = null) : IAdventureGenerationService
+    ILogger<AdventureGenerationService> logger) : IAdventureGenerationService
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
@@ -225,20 +224,27 @@ public sealed class AdventureGenerationService(
         */
         if (pack.IsBekiPipeline)
         {
-            var held = downloadStatus is null
-                ? null
-                : await downloadStatus.DownloadHeldReasonAsync(userId, packId, cancellationToken);
+            /*
+              There is nothing to queue for a Beki book.
 
+              This method exists because the old pipeline built a PDF once, into storage, and a
+              parent's click had to start that job and wait for it. A Beki book's file is composed
+              by the download route itself, per request, so a finished book has nothing here to
+              start and nothing to wait for - the caller should simply download.
+
+              It threw instead, for every Beki book and whatever its verdict said. That is what put
+              a fail-level stack trace in the log each time a parent pressed download, and it is why
+              the download route below it was unreachable: the client called this first and never
+              got past the exception.
+            */
+            if (pack.Status == AdventurePackStatus.Completed)
+            {
+                return;
+            }
+
+            // Still being drawn, which the reader already shows as a spinner.
             throw new InvalidOperationException(
-                pack.Status == AdventurePackStatus.Completed
-                    ? held == BekiDownloadHeld.Gates
-                        // The gates variant. Vaguer on purpose: a failing gate has no promised end,
-                        // and "shortly" would be a date nobody set.
-                        ? "წიგნის ფაილს ბოლო შემოწმება აკლია - ჩამოტვირთვა დროებით დახურულია და ჩვენ უკვე ვმუშაობთ ამაზე."
-                        : "წიგნი გადის ბოლო შემოწმებას - ჩამოტვირთვა მალე გაიხსნება."
-                    // Not Completed: the book is still being drawn, which the reader already shows
-                    // as a spinner. This is the download button pressed a moment too early.
-                    : "წიგნი ჯერ იხატება - ჩამოტვირთვა დასრულებისთანავე გაიხსნება.");
+                "წიგნი ჯერ იხატება - ჩამოტვირთვა დასრულებისთანავე გაიხსნება.");
         }
 
         if (pack.Status != AdventurePackStatus.StoryReady)

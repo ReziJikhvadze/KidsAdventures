@@ -1215,23 +1215,15 @@ function BookCard({
   const handlePdf = useCallback(async () => {
     setPdfError(null);
 
-    /*
-      The book is finished and the file is being held back on purpose.
-
-      Asking for it anyway is what produced the worst message this product has ever shown a
-      parent: the queue refuses a Completed pack with no story to build from, in English, with a
-      status code in front of it. There is nothing to ask for and nothing to wait on in this
-      browser, so the button says so and stops.
-    */
-    if (pack.downloadHeld) {
-      setPdfError(t.dashboard.library.downloadHeld);
-      return;
-    }
-
     setPdfBusy(true);
     setPdfProgress({ percent: null, message: null });
     try {
-      if (!pack.pdfUrl) {
+      /*
+        A Beki book has no build to start: the download route composes it for this click. Waiting
+        for a `pdfUrl` that nothing writes queued a job that always refused and then polled for
+        three minutes, and the refusal above this stopped the request in the browser first.
+      */
+      if (!pack.pdfUrl && pack.generationPipeline !== "beki") {
         if (pack.status !== "GeneratingPdf") await generatePackPdf(pack.id);
         await pollAdventurePack(
           pack.id,
@@ -1252,9 +1244,10 @@ function BookCard({
       } else if (isPackFailed(pack)) {
         setPdfError(t.dashboard.library.failedTitle);
       } else {
-        // Whatever the server said, in Georgian. The old branch printed err.message, and the
-        // server's refusals on this path are English sentences written for an operator.
-        setPdfError(t.dashboard.library.pdfFailed);
+        // Whatever the server said, which is Georgian and written for a parent on every refusal
+        // this route makes now. The generic line is the fallback for a failure that carried none.
+        const message = err instanceof ApiError ? err.message?.trim() : null;
+        setPdfError(message || t.dashboard.library.pdfFailed);
       }
     } finally {
       setPdfBusy(false);
@@ -1372,12 +1365,14 @@ function BookCard({
         ) : null}
 
         {/*
-          The withheld line is shown before anybody presses anything. A parent looking at a card
-          whose download will not work should learn that from the card, not from clicking it.
+          Only what actually went wrong. This also announced `downloadHeld` before anybody pressed
+          anything, which was right while a held book could not be downloaded - the card said so
+          rather than letting the click say it. A finished book downloads now, so the standing
+          notice was telling parents their book was unavailable on the way to handing it to them.
         */}
-        {pdfError || pack.downloadHeld ? (
-          <p className="journey-book-error" role={pdfError ? "alert" : undefined}>
-            {pdfError ?? t.dashboard.library.downloadHeld}
+        {pdfError ? (
+          <p className="journey-book-error" role="alert">
+            {pdfError}
           </p>
         ) : null}
       </div>

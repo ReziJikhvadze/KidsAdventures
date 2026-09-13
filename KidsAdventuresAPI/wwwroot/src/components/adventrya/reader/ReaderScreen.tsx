@@ -226,25 +226,21 @@ export function ReaderScreen() {
   const onDownload = async () => {
     if (!pack || downloading) return;
 
-    /*
-      A finished book whose file is deliberately being held back.
-
-      Asking for it anyway reaches a queue that refuses a Completed pack in English, and that
-      refusal was rendered here verbatim — a code and a sentence about "story must be ready" on
-      a page showing the parent their finished story. There is nothing to wait on in this
-      browser, so this says what is happening and stops.
-    */
-    if (pack.downloadHeld || (pack.generationPipeline === "beki" && !pack.pdfUrl)) {
-      setPdfError(t.story.reader.pdf.held);
-      return;
-    }
-
     setDownloading(true);
     setPdfError(null);
     setPdfStarted(false);
     try {
       let ready = pack;
-      if (!ready.pdfUrl) {
+
+      /*
+        A Beki book is downloaded, not built and then downloaded.
+
+        Its file is composed by the download route for the click that asks, so there is no job to
+        start and no url to wait for. This branch waited for one anyway: `pdfUrl` is null on every
+        Beki book, so it queued a build that always refused and then polled for three minutes for a
+        column nothing writes. The refusal above it never let the request out of the browser at all.
+      */
+      if (!ready.pdfUrl && ready.generationPipeline !== "beki") {
         // A job already running is joined rather than started again: queuing rejects any pack
         // that is not StoryReady, so a second click during the build would only raise an error.
         if (ready.status !== "GeneratingPdf") {
@@ -258,10 +254,17 @@ export function ReaderScreen() {
       }
       await downloadAdventurePack(ready.id, `${title}.pdf`, title);
       setPdfStarted(true);
-    } catch {
-      // One Georgian line, whatever happened. What stood here forwarded the server's own string,
-      // and the strings on this path are English operator messages with failure codes in them.
-      setPdfError(t.story.reader.pdf.failed);
+    } catch (err) {
+      /*
+        The server's own sentence when it wrote one, and a Georgian fallback otherwise.
+
+        This swallowed everything, and had to: the refusals on this path were English operator
+        messages with failure codes in them. Every one of them is Georgian now and written for a
+        parent - "the book is still being made, try again shortly" - so somebody who could have been
+        told what to do was reading a flat "failed" instead.
+      */
+      const message = err instanceof ApiError ? err.message?.trim() : null;
+      setPdfError(message || t.story.reader.pdf.failed);
     } finally {
       setDownloading(false);
     }

@@ -325,28 +325,29 @@ public class BekiReleaseApiTests
         Assert.Equal(0, status.Asked);
     }
 
+    /// <summary>
+    /// A finished book downloads, whatever the release verdict says about manufacturing it.
+    ///
+    /// This asserted the opposite: a withheld book was refused, in Georgian, and the wording was
+    /// the point because the route used to answer "Pack is not ready." in English. The refusal
+    /// itself turned out to be the fault. The verdict judges whether a book is fit to be printed -
+    /// colour, geometry, resolution, none of which a screen has - and it was deciding whether a
+    /// family may open the book they paid for. A press gate no parent can perceive took the book
+    /// away from them, and a flag nobody set on purpose took away a stretch of healthy ones.
+    ///
+    /// The verdict still holds the print queue and still raises its alarms. It no longer stands
+    /// between a parent and a finished book.
+    /// </summary>
     [Fact]
-    public async Task The_download_of_a_withheld_book_answers_in_Georgian_and_says_it_is_held()
+    public async Task A_finished_book_downloads_even_when_the_verdict_withholds_it()
     {
-        /*
-          The download lie, pinned.
-
-          This route returned the bare English string "Pack is not ready." as a 400 body, and the
-          reader rendered whatever came back — so a parent whose finished book was waiting on a
-          reviewer read an untranslated sentence with no subject.
-        */
         var pack = Pack(AdventurePackStatus.Completed, GenerationPipelines.Beki);
 
         var result = await PacksController(pack, held: BekiDownloadHeld.Review).Download(pack.Id, default);
 
-        var body = Assert.IsType<BadRequestObjectResult>(result).Value!;
-        var message = (string)body.GetType().GetProperty("message")!.GetValue(body)!;
-        var held = body.GetType().GetProperty("downloadHeld")!.GetValue(body);
-
-        Assert.Equal(BekiDownloadHeld.Review, held);
-        Assert.DoesNotContain("Pack", message);
-        Assert.DoesNotContain("ready", message, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("წიგნი", message);
+        var file = Assert.IsType<FileContentResult>(result);
+        Assert.Equal("application/pdf", file.ContentType);
+        Assert.NotEmpty(file.FileContents);
     }
 
     [Fact]
@@ -725,6 +726,11 @@ public class BekiReleaseApiTests
     {
         public Task ProcessAsync(Guid packId, Guid runId, CancellationToken cancellationToken) =>
             Task.CompletedTask;
+
+        /// <summary>The composed reading copy. The download route builds one per request now.</summary>
+        public Task<byte[]> ComposeCustomerPdfAsync(
+            Guid packId, Guid userId, CancellationToken cancellationToken) =>
+            Task.FromResult<byte[]>([37, 80, 68, 70]);
     }
 
     private sealed class FakePdf : IAdventurePdfService

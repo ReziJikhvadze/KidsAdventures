@@ -657,15 +657,18 @@ function OrderDetail({
             </span>
           ) : null}
           {/*
-            Printing held on a finished book is the one state the console had no button for: the
-            recovery button above needs a Failed book, and the retry button re-drives the whole
-            paid order. This re-runs print preparation over the artwork that is already stored.
+            The three file buttons, on any finished book.
+
+            They used to appear only when hasReadingPdf / hasPrintPdf said a file was in storage.
+            No book keeps a PDF now - both are built for the click that asks - so those flags mean
+            "released", and gating on them took the operator's tools away from exactly the books
+            that need them: a book held for review showed no download to inspect it with, and a
+            book whose press gates failed hid the upscale button that re-runs the press stage.
+
+            Finished is the condition. Each endpoint builds its own file and answers 409 with the
+            reason when the gates refuse, which is a better answer than a missing button.
           */}
-          {book &&
-          !isLegacy &&
-          book.status === "Completed" &&
-          book.hasReadingPdf &&
-          !book.hasPrintPdf ? (
+          {book && !isLegacy && book.status === "Completed" ? (
             <button
               type="button"
               className="button"
@@ -682,7 +685,7 @@ function OrderDetail({
                 : "ბეჭდვისთვის გადიდება (Upscale for printing)"}
             </button>
           ) : null}
-          {book?.hasReadingPdf ? (
+          {book?.status === "Completed" ? (
             <button
               type="button"
               className="button"
@@ -692,7 +695,7 @@ function OrderDetail({
               {action === "pdf-reading" ? "იტვირთება…" : "საკითხავი PDF"}
             </button>
           ) : null}
-          {book?.hasPrintPdf ? (
+          {book && !isLegacy && book.status === "Completed" ? (
             <button
               type="button"
               className="button"

@@ -890,38 +890,26 @@ public sealed class AdventurePacksController(
         }
 
         /*
-          Whether this book may be downloaded is a verdict, not a file.
+          A finished book downloads. That is the whole rule.
 
-          The test was `PdfUrl is null`, which worked only because the pipeline wrote that
-          column from exactly one thing: the release report's permission to publish. Now that
-          no PDF is kept, the column cannot answer it - so the question goes where the answer
-          always came from. A book with no report at all is a legacy one, held by nothing.
+          The verdict used to decide this, and the verdict is wrong about it: it is a judgement on
+          whether a book is fit to manufacture, and it was being asked whether a family may read the
+          book they paid for. Every book withheld by a press gate - colour, geometry, resolution,
+          none of which a screen has - was withheld from the parent too, and a stretch of books that
+          had nothing wrong with them at all were held by a flag nobody had set on purpose.
+
+          So the book's own state answers: drawn and Completed means the pages exist, and the file
+          is composed from them below. The verdict keeps doing the jobs it is right about - it holds
+          the print queue, it raises its alarms, and it still tells the console what is unresolved.
         */
-        var held = row.Status == AdventurePackStatus.Completed
-            ? await downloadStatus.DownloadHeldReasonAsync(row.UserId, id, cancellationToken)
-            : null;
-
-        if (row.Status != AdventurePackStatus.Completed || held is not null)
+        if (row.Status != AdventurePackStatus.Completed)
         {
-            /*
-              The download lie, answered.
-
-              This returned the English string "Pack is not ready." as a bare 400 body, and the
-              reader rendered whatever came back — so a parent whose finished book was being held
-              for a review read an untranslated sentence with no subject. There are two different
-              things to say here and the book's own state decides which: a book still being made is
-              a wait with pictures behind it, and a finished book whose file is held is a wait with
-              a person behind it.
-            */
+            // Still being made, which the reader already shows as a spinner. This is the download
+            // button pressed a moment too early, and there are pictures behind the wait.
             return BadRequest(new
             {
-                message = held switch
-                {
-                    BekiDownloadHeld.Review or BekiDownloadHeld.Gates =>
-                        "წიგნი გადის ბოლო შემოწმებას - ჩამოტვირთვა მალე გაიხსნება.",
-                    _ => "წიგნი ჯერ მზადდება - ცოტა ხანში სცადე ხელახლა.",
-                },
-                downloadHeld = held,
+                message = "წიგნი ჯერ მზადდება - ცოტა ხანში სცადე ხელახლა.",
+                downloadHeld = (string?)null,
             });
         }
 

@@ -529,7 +529,9 @@ function JourneyBookCard({
     setPdfError(null);
     setPdfBusy(true);
     try {
-      if (!pack.pdfUrl) {
+      // A Beki book's file is composed by the download route itself, so there is no job to start
+      // and no url to wait for. Only a legacy pack still has one worth polling for.
+      if (!pack.pdfUrl && pack.generationPipeline !== "beki") {
         if (pack.status !== "GeneratingPdf") await generatePackPdf(pack.id);
         await pollAdventurePack(pack.id, undefined, { untilPdfReady: true, maxAttempts: 90 });
       }
@@ -541,7 +543,7 @@ function JourneyBookCard({
     } finally {
       setPdfBusy(false);
     }
-  }, [pack.id, pack.pdfUrl, pack.status, title]);
+  }, [pack.id, pack.pdfUrl, pack.generationPipeline, pack.status, title]);
 
   /*
     Built from the month names this product already ships, not from `toLocaleDateString`.
