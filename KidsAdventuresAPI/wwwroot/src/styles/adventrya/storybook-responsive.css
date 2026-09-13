@@ -36,6 +36,24 @@
     line-height: 1.1;
     overflow-wrap: break-word;
   }
+  /*
+    The two small lines, against the board like the title above them.
+
+    They were `clamp(6px, 0.65vw, 8px)`: the width of the window, which is not the width of the
+    cover. On any phone 0.65vw is under the floor, so both sat at 6px - "this book belongs to"
+    and the child's age, set at six pixels on the cover of the book somebody paid for. The home
+    page had been given its own 9px by name and the reader had not, which is why it shows worst
+    there.
+
+    4.8cqi on the 188px cover a phone gets is 9px, so the sample keeps exactly the size it has
+    now and every other cover joins it. The age line stays a step down, as it is drawn.
+  */
+  .storybook-cover-copy small {
+    font-size: clamp(9px, 4.8cqi, 12px);
+  }
+  .storybook-cover-copy span {
+    font-size: clamp(8px, 4.2cqi, 11px);
+  }
   .storybook-page-copy > p {
     font-size: clamp(10px, 3.2vw, 12px);
   }
