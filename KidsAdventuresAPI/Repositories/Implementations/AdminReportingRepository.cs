@@ -114,8 +114,15 @@ public sealed class AdminReportingRepository(
     /// </summary>
     private const string SilentPredicate = "COALESCE(b.GenerationHeartbeatUtc, b.CreatedAt) < @StaleCutoffUtc";
 
+    /// <summary>
+    /// Finished, on the Beki pipeline, and not yet let out to the family.
+    ///
+    /// The middle test used to be "PdfUrl IS NULL", which read as "no file was published" only
+    /// while a published file was a url in that column. Books keep no PDF now, so the column is
+    /// null on all of them and this matched every finished book in the console.
+    /// </summary>
     private const string AwaitingReviewPredicate =
-        "(b.Status = N'Completed' AND b.PdfUrl IS NULL AND b.GenerationPipeline = N'beki')";
+        "(b.Status = N'Completed' AND b.CustomerPdfReleased = 0 AND b.GenerationPipeline = N'beki')";
 
     /// <summary>
     /// Unreviewed alarms for this order's book.
@@ -139,10 +146,10 @@ public sealed class AdminReportingRepository(
     /// eventually says two things.
     /// </summary>
     private static readonly string BookStateColumns = $"""
-        CAST(CASE WHEN b.PdfUrl IS NOT NULL THEN 1 ELSE 0 END AS BIT) AS HasReadingPdf,
-        CAST(CASE WHEN b.PrintPdfUrl IS NOT NULL THEN 1 ELSE 0 END AS BIT) AS HasPrintPdf,
+        b.CustomerPdfReleased AS HasReadingPdf,
+        b.PressFilesReleased AS HasPrintPdf,
         al.OpenAlarmCount,
-        CAST(CASE WHEN b.Status = N'Completed' AND b.PdfUrl IS NULL
+        CAST(CASE WHEN b.Status = N'Completed' AND b.CustomerPdfReleased = 0
                   THEN 1 ELSE 0 END AS BIT) AS Withheld,
         CAST(CASE WHEN {NeedsAttentionPredicate} THEN 1 ELSE 0 END AS BIT) AS NeedsAttention,
         CAST(CASE WHEN {GeneratingPredicate} AND {SilentPredicate}

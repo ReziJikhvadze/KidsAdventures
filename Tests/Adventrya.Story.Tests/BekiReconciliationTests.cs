@@ -66,15 +66,22 @@ public class BekiReconciliationTests
                 reason = "Print conversion failed; original customer PDF validated."
             }));
         var pack = CompletedPack();
-        pack.PdfUrl = null;
-        pack.PrintPdfUrl = "https://blob.test/stale-print-permission.pdf";
+        pack.CustomerPdfReleased = false;
+        pack.PressFilesReleased = true;
+
+        // A book old enough to still carry a press url. Nothing writes one now, but the ones
+        // already written are what the print download falls back to, so a verdict that withdraws
+        // print readiness has to take the url away as well as the flag.
+        pack.PrintPdfUrl = "https://blob.test/an-old-books-interior.pdf";
+
         var packs = new ReconcilePacks(pack) { Withheld = [pack] };
 
         var published = await Reconciliation(packs, blobs, new RecordingAlarms())
             .ReconcileWithheldAsync(CancellationToken.None);
 
         Assert.Equal(1, published);
-        Assert.NotNull(pack.PdfUrl);
+        Assert.True(pack.CustomerPdfReleased);
+        Assert.False(pack.PressFilesReleased);
         Assert.Null(pack.PrintPdfUrl);
         Assert.Equal(AdventurePackStatus.Completed, pack.Status);
     }
@@ -111,7 +118,7 @@ public class BekiReconciliationTests
             page => Assert.False(string.IsNullOrWhiteSpace(page.IllustrationUrl)));
 
         // The download is published too, because nothing in this book's verdict withholds it.
-        Assert.False(string.IsNullOrWhiteSpace(packs.Pack.PdfUrl));
+        Assert.True(packs.Pack.CustomerPdfReleased);
 
         // And the burial stays on the record. A book that takes longer than the whole budget is a
         // fault even when it arrives.
@@ -162,9 +169,16 @@ public class BekiReconciliationTests
         Assert.Equal(AdventurePackStatus.Failed, packs.Pack.Status);
     }
 
-    /// <summary>And a book with no reading PDF is not a finished book either.</summary>
+    /// <summary>
+    /// A book with no stored reading PDF is still a finished book.
+    ///
+    /// This asserted the opposite, and was right while a finished book kept its PDF. Once no book
+    /// keeps one, the rule buried every book the sweep had failed: it demanded an artifact nothing
+    /// writes any more, so no revival could satisfy it however complete the artwork was. What says
+    /// the book was drawn is the spreads, and those are still checked above.
+    /// </summary>
     [Fact]
-    public async Task A_book_with_no_reading_pdf_stays_failed()
+    public async Task A_book_with_no_stored_reading_pdf_is_still_restored()
     {
         var blobs = new PolicyFakeBlobs();
         SeedFinishedBook(blobs);
@@ -174,8 +188,9 @@ public class BekiReconciliationTests
         var result = await Reconciliation(packs, blobs, new RecordingAlarms())
             .ReconcilePackAsync(PackId, "a retry", CancellationToken.None);
 
-        Assert.False(result.Restored);
-        Assert.Equal(BekiReconcileOutcomes.Incomplete, result.Outcome);
+        Assert.True(result.Restored);
+        Assert.Equal(BekiReconcileOutcomes.Restored, result.Outcome);
+        Assert.Equal(AdventurePackStatus.Completed, packs.Pack.Status);
     }
 
     /// <summary>
@@ -225,7 +240,7 @@ public class BekiReconciliationTests
 
         Assert.False(result.Restored);
         Assert.Equal(AdventurePackStatus.Failed, packs.Pack.Status);
-        Assert.True(string.IsNullOrWhiteSpace(packs.Pack.PdfUrl));
+        Assert.False(packs.Pack.CustomerPdfReleased);
     }
 
     /// <summary>
@@ -243,7 +258,7 @@ public class BekiReconciliationTests
         blobs.Remove(BekiPackBlobs.DigitalReportName(UserId, PackId));
 
         var withheld = CompletedPack();
-        withheld.PdfUrl = null;
+        withheld.CustomerPdfReleased = false;
 
         var packs = new ReconcilePacks(withheld) { Withheld = [withheld] };
         var alarms = new RecordingAlarms();
@@ -252,7 +267,7 @@ public class BekiReconciliationTests
             .ReconcileWithheldAsync(CancellationToken.None);
 
         Assert.Equal(1, published);
-        Assert.False(string.IsNullOrWhiteSpace(packs.Pack.PdfUrl));
+        Assert.True(packs.Pack.CustomerPdfReleased);
 
         // The verdict is rewritten under the new policy, so the stored document and the published
         // file agree — and the waiver it now carries raises its alarm.
@@ -281,7 +296,7 @@ public class BekiReconciliationTests
         blobs.Remove(BekiPackBlobs.SpreadQaName(UserId, PackId, 2));
 
         var withheld = CompletedPack();
-        withheld.PdfUrl = null;
+        withheld.CustomerPdfReleased = false;
 
         var packs = new ReconcilePacks(withheld) { Withheld = [withheld] };
 
@@ -291,7 +306,7 @@ public class BekiReconciliationTests
             .ReconcileWithheldAsync(CancellationToken.None);
 
         Assert.Equal(0, published);
-        Assert.True(string.IsNullOrWhiteSpace(packs.Pack.PdfUrl));
+        Assert.False(packs.Pack.CustomerPdfReleased);
     }
 
     /// <summary>
@@ -321,7 +336,7 @@ public class BekiReconciliationTests
 
         // The family already has their book. Only the printer's file is being held.
         var pack = CompletedPack();
-        pack.PdfUrl = "https://blob.test/already-published.pdf";
+        pack.CustomerPdfReleased = true;
         pack.PrintPdfUrl = null;
 
         var packs = new ReconcilePacks(pack) { Withheld = [pack] };
@@ -338,7 +353,7 @@ public class BekiReconciliationTests
         var published = await Reconciliation(packs, blobs, new RecordingAlarms(), flagged)
             .ReconcileWithheldAsync(CancellationToken.None);
 
-        Assert.Null(packs.Pack.PrintPdfUrl);
+        Assert.False(packs.Pack.PressFilesReleased);
 
         // No manufacturing release is counted for a waived-but-failing print gate.
         Assert.Equal(0, published);
@@ -387,7 +402,7 @@ public class BekiReconciliationTests
             .ReconcileWithheldAsync(CancellationToken.None);
 
         Assert.Equal(count, published);
-        Assert.All(withheld, pack => Assert.False(string.IsNullOrWhiteSpace(pack.PdfUrl)));
+        Assert.All(withheld, pack => Assert.True(pack.CustomerPdfReleased));
 
         // A full read and a short one: the batch size is a page, and the short page is the end.
         Assert.Equal(new[] { 200, 30 }, packs.Batches);
@@ -416,7 +431,7 @@ public class BekiReconciliationTests
         BekiReleasePolicyGateTests.Seed(blobs, UserId, PackId);
 
         var withheld = CompletedPack();
-        withheld.PdfUrl = null;
+        withheld.CustomerPdfReleased = false;
 
         var packs = new ReconcilePacks(withheld) { Withheld = [withheld] };
 
@@ -436,8 +451,8 @@ public class BekiReconciliationTests
 
             // Nothing published, and nothing counted: an operator's "0 books" is the truth here.
             Assert.Equal(0, published);
-            Assert.True(string.IsNullOrWhiteSpace(packs.Pack.PdfUrl));
-            Assert.Null(packs.Pack.PrintPdfUrl);
+            Assert.False(packs.Pack.CustomerPdfReleased);
+            Assert.False(packs.Pack.PressFilesReleased);
         }
         finally
         {
@@ -457,7 +472,7 @@ public class BekiReconciliationTests
         BekiReleasePolicyGateTests.Seed(blobs, UserId, PackId);
 
         var withheld = CompletedPack();
-        withheld.PdfUrl = null;
+        withheld.CustomerPdfReleased = false;
 
         var packs = new ReconcilePacks(withheld) { Withheld = [withheld] };
         var packLock = new InProcessBekiPackLock();
@@ -472,7 +487,7 @@ public class BekiReconciliationTests
         await held.DisposeAsync();
 
         Assert.Equal(1, await reconciliation.ReconcileWithheldAsync(CancellationToken.None));
-        Assert.False(string.IsNullOrWhiteSpace(packs.Pack.PdfUrl));
+        Assert.True(packs.Pack.CustomerPdfReleased);
     }
 
     /// <summary>
@@ -518,11 +533,11 @@ public class BekiReconciliationTests
 
         Assert.True(restored.Restored);
         Assert.Equal(AdventurePackStatus.Completed, packs.Pack.Status);
-        Assert.False(string.IsNullOrWhiteSpace(packs.Pack.PdfUrl));
+        Assert.True(packs.Pack.CustomerPdfReleased);
 
         // And so does the shared writer entered the same way — which is what that revival published
         // through, and what a self-deadlock would have hung on.
-        packs.Pack.PdfUrl = null;
+        packs.Pack.CustomerPdfReleased = false;
 
         var stored = BekiReleaseGateReport.TryParse(
             Encoding.UTF8.GetString(blobs.Get(BekiPackBlobs.ReleaseGatesName(UserId, PackId))!))!;
@@ -531,49 +546,37 @@ public class BekiReconciliationTests
             packs.Pack, stored, CancellationToken.None);
 
         Assert.True(outcome.CustomerPdf);
-        Assert.False(string.IsNullOrWhiteSpace(packs.Pack.PdfUrl));
+        Assert.True(packs.Pack.CustomerPdfReleased);
     }
 
     // ==============================================================================================
-    // Which file is the printer's file — the canonical publish fault, 2026-09-06
+    // Which file is the printer's file - answered, then made moot, 2026-09-13
     //
-    // Since the canonical unification a composite book has ONE stored PDF, and the reader, the
-    // download, the admin console and the press all point at it. This writer went on looking for the
-    // legacy `-interior.pdf` and nothing else, so on every book this deployment now makes it wrote
-    // nothing at all: an operator's approval left PrintPdfUrl null, the admin print download
-    // answered 409, and the order detail showed no press file — while the response, which read the
-    // verdict rather than the column, said the press files were out.
+    // Four tests stood here, each pinning down which blob a press publication should point at: the
+    // canonical PDF for a new book, the legacy interior for an old one, and nothing at all for a
+    // reading copy whose integrity record does not name print as a consumer. They were the fix for
+    // a real fault and they passed to the very end - because each one seeded the blob it then
+    // went looking for. Production seeded nothing, and the same code found nothing on every book.
+    //
+    // No book keeps a PDF now. The printer's file is made in the operator panel by the stage that
+    // runs the press gates, and publication stopped being a url to a file: it is the verdict's
+    // permission, recorded. The question those four answered has no subject left, and the safety
+    // the first of them protected - a screen copy must never reach a binder - now sits in the
+    // stage that builds the press file, which refuses on the gates rather than on a name.
     // ==============================================================================================
 
     /// <summary>
-    /// A canonical book's press file is the canonical PDF, and there is no legacy interior to find.
+    /// Releasing the printer's files is a permission recorded, and needs no file to find.
+    ///
+    /// The regression this stands against: the writer looked storage up, found nothing on any book
+    /// this deployment makes, and left the column empty - so an approval that released the press on
+    /// paper wrote nothing, the print download went on answering 409, and the parcel stayed in the
+    /// queue behind a guard reading that same column.
     /// </summary>
     [Fact]
-    public async Task Approving_a_screen_copy_cannot_publish_it_for_printing()
+    public async Task Releasing_the_press_needs_no_stored_file()
     {
         var blobs = new PolicyFakeBlobs();
-        blobs.Seed(BekiPackBlobs.ReadingPdfName(UserId, PackId), [9]);
-        blobs.Seed(BekiPackBlobs.CanonicalIntegrityName(UserId, PackId),
-            "{\"consumers\":[\"reader\",\"download\",\"admin\"]}"u8.ToArray());
-        var packs = new ReconcilePacks(CompletedPack());
-        var service = Reconciliation(packs, blobs, new RecordingAlarms());
-        var outcome = await service.PublishUnlockedFilesLockedAsync(packs.Pack, Unlocked(), CancellationToken.None);
-        Assert.False(outcome.PressFiles);
-        Assert.Null(packs.Pack.PrintPdfUrl);
-
-        blobs.Seed(BekiPackBlobs.InteriorPdfName(UserId, PackId), [8]);
-        outcome = await service.PublishUnlockedFilesLockedAsync(packs.Pack, Unlocked(), CancellationToken.None);
-        Assert.True(outcome.PressFiles);
-        Assert.Equal($"https://blob.test/{BekiPackBlobs.InteriorPdfName(UserId, PackId)}", packs.Pack.PrintPdfUrl);
-        Assert.Equal(new byte[] { 9 }, blobs.Get(BekiPackBlobs.ReadingPdfName(UserId, PackId)));
-    }
-
-    [Fact]
-    public async Task A_canonical_books_press_file_is_the_canonical_pdf()
-    {
-        var blobs = new PolicyFakeBlobs();
-        SeedCanonicalBook(blobs);
-
         var packs = new ReconcilePacks(CompletedPack());
         var reconciliation = Reconciliation(packs, blobs, new RecordingAlarms());
 
@@ -581,57 +584,11 @@ public class BekiReconciliationTests
             packs.Pack, Unlocked(), CancellationToken.None);
 
         Assert.True(outcome.PressFiles);
-        Assert.Equal(
-            $"https://blob.test/{BekiPackBlobs.ReadingPdfName(UserId, PackId)}",
-            packs.Pack.PrintPdfUrl);
+        Assert.True(packs.Pack.PressFilesReleased);
 
-        // Not because the interior happened to be there under another name: it is not there at all.
+        // And nothing was read to decide it: there is no PDF of this book anywhere.
+        Assert.False(blobs.Has(BekiPackBlobs.ReadingPdfName(UserId, PackId)));
         Assert.False(blobs.Has(BekiPackBlobs.InteriorPdfName(UserId, PackId)));
-    }
-
-    /// <summary>
-    /// A legacy book keeps the answer it always had. Nothing writes the separate press interior any
-    /// more, but the books that already have one are still in storage and still get printed.
-    /// </summary>
-    [Fact]
-    public async Task A_legacy_books_press_file_is_still_the_interior()
-    {
-        var blobs = new PolicyFakeBlobs();
-        blobs.Seed(BekiPackBlobs.ReadingPdfName(UserId, PackId), [9]);
-        blobs.Seed(BekiPackBlobs.InteriorPdfName(UserId, PackId), [8]);
-
-        var packs = new ReconcilePacks(CompletedPack());
-        var reconciliation = Reconciliation(packs, blobs, new RecordingAlarms());
-
-        var outcome = await reconciliation.PublishUnlockedFilesLockedAsync(
-            packs.Pack, Unlocked(), CancellationToken.None);
-
-        Assert.True(outcome.PressFiles);
-        Assert.Equal(
-            $"https://blob.test/{BekiPackBlobs.InteriorPdfName(UserId, PackId)}",
-            packs.Pack.PrintPdfUrl);
-    }
-
-    /// <summary>
-    /// And a canonical book whose PDF is not in storage publishes nothing rather than throwing or
-    /// writing a URL to a file nobody can fetch. The column stays empty, which is what the print
-    /// download's refusal is reading.
-    /// </summary>
-    [Fact]
-    public async Task A_canonical_book_with_no_pdf_publishes_nothing()
-    {
-        var blobs = new PolicyFakeBlobs();
-        blobs.Seed(BekiPackBlobs.CanonicalIntegrityName(UserId, PackId), "{\"consumers\":[\"reader\",\"print\"]}"u8.ToArray());
-
-        var packs = new ReconcilePacks(CompletedPack());
-        var reconciliation = Reconciliation(packs, blobs, new RecordingAlarms());
-
-        var outcome = await reconciliation.PublishUnlockedFilesLockedAsync(
-            packs.Pack, Unlocked(), CancellationToken.None);
-
-        Assert.False(outcome.PressFiles);
-        Assert.False(outcome.CustomerPdf);
-        Assert.Null(packs.Pack.PrintPdfUrl);
     }
 
     /// <summary>
@@ -892,6 +849,32 @@ internal sealed class ReconcilePacks(AdventurePack pack) : IAdventurePackReposit
         return Task.CompletedTask;
     }
 
+    public Task<bool> TryMarkCustomerPdfReleasedAsync(Guid id, CancellationToken cancellationToken)
+    {
+        // The real statement's guard, spelled out: still Completed, and not already out. Without
+        // both, a test double would report a second publication of a book that is already
+        // published, which is the race the alarm above it is watching for.
+        if (Find(id) is not { } row
+            || row.Status != AdventurePackStatus.Completed
+            || row.CustomerPdfReleased)
+        {
+            return Task.FromResult(false);
+        }
+
+        row.CustomerPdfReleased = true;
+        return Task.FromResult(true);
+    }
+
+    public Task SetPressFilesReleasedAsync(Guid id, bool released, CancellationToken cancellationToken)
+    {
+        if (Find(id) is { } row)
+        {
+            row.PressFilesReleased = released;
+        }
+
+        return Task.CompletedTask;
+    }
+
     public Task UpdateProgressAsync(
         Guid id, string? progressMessage, int? progressPercent, CancellationToken cancellationToken)
     {
@@ -910,8 +893,7 @@ internal sealed class ReconcilePacks(AdventurePack pack) : IAdventurePackReposit
         // Either column missing is withheld — amendment A5's split, which the SQL asked only
         // half of until review finding 2.
         var page = Withheld
-            .Where(row => string.IsNullOrWhiteSpace(row.PdfUrl)
-                          || string.IsNullOrWhiteSpace(row.PrintPdfUrl))
+            .Where(row => !row.CustomerPdfReleased || !row.PressFilesReleased)
             .OrderByDescending(row => row.CreatedAt)
             .ThenByDescending(row => row.Id)
             .Where(row => after is not { } cursor

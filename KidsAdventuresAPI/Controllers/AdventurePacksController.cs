@@ -650,7 +650,28 @@ public sealed class AdventurePacksController(
             return BadRequest(new { message = "ეს წიგნი ჯერ არ არის შეძენილი." });
         }
 
-        await generationService.QueuePdfGenerationAsync(userId, id, cancellationToken);
+        /*
+          A held book is an answer, not a fault.
+
+          The service says "this book is finishing its last check" by throwing, and the global
+          handler turns that into the 400 the parent should get - with the right sentence, in
+          Georgian. What it also does is log the throw as an unhandled exception: a fail-level
+          entry and thirty frames of stack, for a book that is behaving exactly as designed. A
+          parent tapping the download button twice while a review is open filled the log with
+          them, and a real fault in this endpoint would have been invisible among them.
+
+          Caught here rather than reshaped into a result type: the status and the message are
+          already right, and this is the same shape the operator panel's refusals take.
+        */
+        try
+        {
+            await generationService.QueuePdfGenerationAsync(userId, id, cancellationToken);
+        }
+        catch (InvalidOperationException held)
+        {
+            return BadRequest(new { message = held.Message });
+        }
+
         return Accepted(new
         {
             id,

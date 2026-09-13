@@ -39,6 +39,19 @@ public sealed class AdventurePack
     /// </summary>
     public string? PrintPdfUrl { get; set; }
 
+    /// <summary>
+    /// Whether the release verdict has let the family's copy out.
+    ///
+    /// The two urls above used to answer this by being set or not, which worked only while a PDF
+    /// was a file somebody kept. Each is composed on the click that asks for it now, so the urls
+    /// are null on every new book and cannot answer anything. This is the same fact written down
+    /// on purpose rather than inferred from a side effect.
+    /// </summary>
+    public bool CustomerPdfReleased { get; set; }
+
+    /// <summary>The printer's half of the same answer, which an approval can grant separately.</summary>
+    public bool PressFilesReleased { get; set; }
+
     public string? ErrorMessage { get; set; }
     public string? OptionalStoryNotes { get; set; }
     public string? StoryLanguage { get; set; }

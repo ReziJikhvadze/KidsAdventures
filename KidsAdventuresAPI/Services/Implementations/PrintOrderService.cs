@@ -334,8 +334,12 @@ public sealed class PrintOrderService(
 
         if (status is PrintOrderStatus.Printing or PrintOrderStatus.Shipped or PrintOrderStatus.Delivered)
         {
+            // Asked of the release flag rather than the url column: the printer's file is made in
+            // the operator panel and kept by nobody, so the url is empty on every book made since
+            // and this guard was holding every parcel in the queue. The flag is the same
+            // permission the url was only ever a receipt for, and it is backfilled from it.
             var pack = await packRepository.GetByIdNoOwnershipAsync(printOrder.BookId, cancellationToken);
-            if (pack is null || string.IsNullOrWhiteSpace(pack.PrintPdfUrl))
+            if (pack is null || !pack.PressFilesReleased)
                 throw new InvalidOperationException(
                     "ბეჭდვა შეჩერებულია: ბეჭდვისთვის დამტკიცებული PDF არ არის მზად. შეამოწმეთ ადმინისტრატორის შეცდომები.");
         }

@@ -455,7 +455,7 @@ public sealed class AdminOrdersController(
     {
         var pack = await packRepository.GetByIdNoOwnershipAsync(packId, cancellationToken);
         if (pack is null) return "printing state unknown.";
-        if (!string.IsNullOrWhiteSpace(pack.PrintPdfUrl)) return "print files published.";
+        if (pack.PressFilesReleased) return "print files published.";
 
         var reasons = await TryReadPressHoldAsync(pack.UserId, pack.Id, cancellationToken);
         return reasons is null
@@ -650,7 +650,7 @@ public sealed class AdminOrdersController(
           already signed off. It is an alarm.
         */
         var publicationExpected = revised.CustomerPdfMayPublish
-            && string.IsNullOrWhiteSpace(pack.PdfUrl)
+            && !pack.CustomerPdfReleased
             && pack.Status == AdventurePackStatus.Completed;
 
         // The PARENT's half of the answer, specifically. A press column written by the same call is
@@ -668,8 +668,8 @@ public sealed class AdminOrdersController(
                     "publish_after_review",
                     BekiReleaseSeverity.Blocker,
                     $"{approval.ApprovedBy} approved this book and the reading copy was still not "
-                    + "published. The pack is no longer Completed, or the file is missing from "
-                    + "storage. The family is waiting on a book that has been signed off.",
+                    + "released. The pack is no longer Completed, or another writer moved it "
+                    + "first. The family is waiting on a book that has been signed off.",
                     BekiPackBlobs.ReadingPdfName(pack.UserId, pack.Id),
                     // Keyed on the sheet, so approving the same rendering twice is one alarm and a
                     // re-render that fails again is a new one.
@@ -688,8 +688,7 @@ public sealed class AdminOrdersController(
           the book's lock and may adopt a newer row than the one this request started with.
         */
         var afterPublish = await packRepository.GetByIdNoOwnershipAsync(pack.Id, cancellationToken);
-        var pressPublished = published.PressFiles
-            || !string.IsNullOrWhiteSpace((afterPublish ?? pack).PrintPdfUrl);
+        var pressPublished = published.PressFiles || (afterPublish ?? pack).PressFilesReleased;
 
         if (revised.PrintReady && !pressPublished)
         {

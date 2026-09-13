@@ -837,8 +837,8 @@ public class BekiRepreparePrintTests
             Id = packId,
             UserId = Guid.NewGuid(),
             Status = AdventurePackStatus.Completed,
-            PdfUrl = "https://blob.test/book.pdf",
-            PrintPdfUrl = "https://blob.test/book.pdf",
+            CustomerPdfReleased = true,
+            PressFilesReleased = true,
         });
 
         var response = Assert.IsType<OkObjectResult>(

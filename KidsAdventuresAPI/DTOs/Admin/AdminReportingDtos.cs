@@ -226,9 +226,12 @@ public sealed class AdminOrderBook
     public DateTimeOffset? LastReadAt { get; set; }
 
     /// <summary>
-    /// Whether a PDF exists to download. The URLs themselves are not returned: they are blob
-    /// paths this API resolves, and an admin downloads through
-    /// <c>GET /api/admin/orders/{id}/pdf</c> rather than by being handed storage internals.
+    /// Whether each file has been released, which is what the console acts on.
+    ///
+    /// Not "a file is sitting in storage": no PDF of a book is kept, and both are composed for the
+    /// click that asks. What an operator needs to know is whether the verdict has let each one out,
+    /// which is the same thing these flags said back when a released file was a url in a column.
+    /// The files themselves come from <c>GET /api/admin/orders/{id}/pdf</c>.
     /// </summary>
     public bool HasReadingPdf { get; set; }
     public bool HasPrintPdf { get; set; }

@@ -93,13 +93,13 @@ public sealed class AdminOverviewRepository(ISqlConnectionFactory connectionFact
                                    AND b.OrderSettled = 0
                                   THEN 1 END) AS BooksFailedCount,
                        COUNT(CASE WHEN b.Status = N'{nameof(AdventurePackStatus.Completed)}'
-                                   AND b.PdfUrl IS NULL
+                                   AND b.CustomerPdfReleased = 0
                                    AND b.GenerationPipeline = N'{GenerationPipelines.Beki}'
                                   THEN 1 END) AS AwaitingReviewCount
                    FROM (
                        -- SQL Server refuses a subquery inside an aggregate, so "is the order
                        -- settled" is decided per row here and only counted above.
-                       SELECT p.Status, p.GenerationHeartbeatUtc, p.CreatedAt, p.PdfUrl,
+                       SELECT p.Status, p.GenerationHeartbeatUtc, p.CreatedAt, p.CustomerPdfReleased,
                               p.GenerationPipeline,
                               CASE WHEN EXISTS (
                                        SELECT 1 FROM dbo.Orders o
@@ -109,7 +109,7 @@ public sealed class AdminOverviewRepository(ISqlConnectionFactory connectionFact
                        FROM dbo.AdventurePacks p
                        WHERE p.Status IN ({GeneratingStatuses})
                           OR p.Status = N'{nameof(AdventurePackStatus.Failed)}'
-                          OR (p.Status = N'{nameof(AdventurePackStatus.Completed)}' AND p.PdfUrl IS NULL)
+                          OR (p.Status = N'{nameof(AdventurePackStatus.Completed)}' AND p.CustomerPdfReleased = 0)
                    ) b;
 
                    SELECT

@@ -272,22 +272,20 @@ public class BekiReleaseGatesApprovalTests
 
     /// <summary>
     /// End to end through the endpoint the console calls: the approval is recorded, the verdict is
-    /// rewritten, the printer's file is published, and the response no longer asks for a signature —
+    /// rewritten, the printer's files are released, and the response no longer asks for a signature —
     /// all in the one request, which is what the endpoint's atomicity claim is about.
     ///
-    /// On a CANONICAL book, which is the only kind this deployment now makes: one PDF, an integrity
-    /// record beside it, and no legacy press interior anywhere in storage. Seeding the interior here
-    /// would have made the test pass over the fault it was written to catch — the publish path
-    /// looked for the printer's file under the legacy name only, so a signature on a real book wrote
-    /// nothing and the print download went on answering 409.
+    /// This once pinned down WHICH blob the release pointed at, because the publish path looked for
+    /// the printer's file under the legacy name only and a signature on a real book therefore wrote
+    /// nothing. Storage cannot answer that any more - no book keeps a PDF - so the release is a
+    /// permission on the row, and what this holds to account is that a signature records it.
     /// </summary>
     [Fact]
-    public async Task Approving_a_skipped_book_writes_the_print_url_in_one_request()
+    public async Task Approving_a_skipped_book_releases_the_press_in_one_request()
     {
         var blobs = new PolicyFakeBlobs();
         SeedReviewSkipped(blobs);
         blobs.Seed(BekiPackBlobs.ReadingPdfName(UserId, PackId), [7]);
-        blobs.Seed(BekiPackBlobs.InteriorPdfName(UserId, PackId), [8]);
 
         var policy = BekiReleasePolicySnapshot.Defaults;
         var sheet = await StoreVerdictAsync(blobs, policy);
@@ -304,10 +302,9 @@ public class BekiReleaseGatesApprovalTests
         Assert.False(response.PrintAwaitingHumanApproval);
         Assert.True(response.PressFilesPublished);
 
-        // The separately prepared print PDF is published; the customer copy is preserved.
-        Assert.Equal(
-            $"https://blob.test/{BekiPackBlobs.InteriorPdfName(UserId, PackId)}",
-            packs.Pack.PrintPdfUrl);
+        // The printer's files are released on the row, which is what the print download and the
+        // parcel queue both read. No file is named: the press PDF is made in the operator panel.
+        Assert.True(packs.Pack.PressFilesReleased);
         Assert.True(blobs.Has(BekiPackBlobs.ReadingPdfName(UserId, PackId)));
     }
 

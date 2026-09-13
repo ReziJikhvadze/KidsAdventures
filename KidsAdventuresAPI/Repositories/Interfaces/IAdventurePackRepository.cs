@@ -149,6 +149,26 @@ public interface IAdventurePackRepository
     Task UpdatePrintPdfUrlAsync(Guid id, string? printPdfUrl, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Lets the family's copy out, and answers whether this call is the one that did it.
+    ///
+    /// Under the same compare-and-set the url write carried, for the same reason: the approval
+    /// endpoint, the withheld sweep and the fulfilment job's own late publication all reach here,
+    /// and a book the sweep buried between another caller's read and its write must not be
+    /// reported as released by that caller. False means somebody else got there first or the book
+    /// is no longer Completed, which is exactly what the approval alarm is watching for.
+    ///
+    /// Default true rather than a no-op's false: a test double that has not been taught this
+    /// member is not a book that failed to publish, and answering false would raise a blocker
+    /// alarm about a family that does not exist.
+    /// </summary>
+    Task<bool> TryMarkCustomerPdfReleasedAsync(Guid id, CancellationToken cancellationToken)
+        => Task.FromResult(true);
+
+    /// <summary>The printer's half of the same flag, which an approval can grant or revoke alone.</summary>
+    Task SetPressFilesReleasedAsync(Guid id, bool released, CancellationToken cancellationToken)
+        => Task.CompletedTask;
+
+    /// <summary>
     /// Records the book's canonical title on the pack row — the order record's copy of the one
     /// string the cover, the intro and the PDF metadata all print. A default no-op rather than an
     /// abstract member: only fulfilment writes it, and every test double of this wide interface

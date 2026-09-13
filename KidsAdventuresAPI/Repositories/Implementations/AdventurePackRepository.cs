@@ -6,7 +6,8 @@ namespace AdventurePacks.Api.Repositories.Implementations;
 public sealed class AdventurePackRepository(ISqlConnectionFactory connectionFactory) : IAdventurePackRepository
 {
     private const string PackColumns = """
-        Id, UserId, ChildId, Theme, Status, GeneratedJson, PdfUrl, PrintPdfUrl, ErrorMessage,
+        Id, UserId, ChildId, Theme, Status, GeneratedJson, PdfUrl, PrintPdfUrl,
+        CustomerPdfReleased, PressFilesReleased, ErrorMessage,
         OptionalStoryNotes, StoryLanguage, ProgressMessage, ProgressPercent, PdfCreditCharged,
         PreviewIllustrationUrl, PreviewIllustrationStatus, PreviewIllustrationUpdatedAt,
         StoryPageCount, IsWelcomeGiftStory, CreatedAt,
@@ -26,7 +27,8 @@ public sealed class AdventurePackRepository(ISqlConnectionFactory connectionFact
     /// Everything that actually reads a story fetches one book by id, and those still get it.
     /// </summary>
     private const string PackListColumns = """
-        Id, UserId, ChildId, Theme, Status, PdfUrl, PrintPdfUrl, ErrorMessage,
+        Id, UserId, ChildId, Theme, Status, PdfUrl, PrintPdfUrl,
+        CustomerPdfReleased, PressFilesReleased, ErrorMessage,
         OptionalStoryNotes, StoryLanguage, ProgressMessage, ProgressPercent, PdfCreditCharged,
         PreviewIllustrationUrl, PreviewIllustrationStatus, PreviewIllustrationUpdatedAt,
         StoryPageCount, IsWelcomeGiftStory, CreatedAt,
@@ -634,6 +636,39 @@ public sealed class AdventurePackRepository(ISqlConnectionFactory connectionFact
             cancellationToken: cancellationToken));
     }
 
+    public async Task<bool> TryMarkCustomerPdfReleasedAsync(Guid id, CancellationToken cancellationToken)
+    {
+        // Still Completed and not already out: the two conditions the url write checked, kept in
+        // the statement so that two callers racing here produce one release and one false.
+        const string sql = """
+                           UPDATE AdventurePacks
+                           SET CustomerPdfReleased = 1
+                           WHERE Id = @Id
+                             AND Status = @Completed
+                             AND CustomerPdfReleased = 0;
+                           """;
+        using var connection = connectionFactory.CreateConnection();
+        var affected = await connection.ExecuteAsync(new CommandDefinition(
+            sql,
+            new { Id = id, Completed = nameof(AdventurePackStatus.Completed) },
+            cancellationToken: cancellationToken));
+        return affected > 0;
+    }
+
+    public async Task SetPressFilesReleasedAsync(Guid id, bool released, CancellationToken cancellationToken)
+    {
+        const string sql = """
+                           UPDATE AdventurePacks
+                           SET PressFilesReleased = @Released
+                           WHERE Id = @Id;
+                           """;
+        using var connection = connectionFactory.CreateConnection();
+        await connection.ExecuteAsync(new CommandDefinition(
+            sql,
+            new { Id = id, Released = released },
+            cancellationToken: cancellationToken));
+    }
+
     /// <summary>
     /// The message-only progress write, and the heartbeat with it — for the same reason as
     /// <see cref="UpdateProgressAsync"/>. The two exist only because one carries a percentage;
@@ -873,6 +908,8 @@ public sealed class AdventurePackRepository(ISqlConnectionFactory connectionFact
         GeneratedJson = row.GeneratedJson,
         PdfUrl = row.PdfUrl,
         PrintPdfUrl = row.PrintPdfUrl,
+        CustomerPdfReleased = row.CustomerPdfReleased,
+        PressFilesReleased = row.PressFilesReleased,
         ErrorMessage = row.ErrorMessage,
         OptionalStoryNotes = row.OptionalStoryNotes,
         StoryLanguage = row.StoryLanguage,
@@ -911,6 +948,8 @@ public sealed class AdventurePackRepository(ISqlConnectionFactory connectionFact
         public string? GeneratedJson { get; set; }
         public string? PdfUrl { get; set; }
         public string? PrintPdfUrl { get; set; }
+        public bool CustomerPdfReleased { get; set; }
+        public bool PressFilesReleased { get; set; }
         public string? ErrorMessage { get; set; }
         public string? OptionalStoryNotes { get; set; }
         public string? StoryLanguage { get; set; }

@@ -145,7 +145,7 @@ public sealed class PrintOrderRepository(ISqlConnectionFactory connectionFactory
                    p.CreatedAt, p.ShippedAt, p.DeliveredAt,
                    b.Title AS BookTitle, b.Status AS BookStatus,
                    b.GenerationPipeline AS BookPipeline,
-                   CAST(CASE WHEN b.PrintPdfUrl IS NOT NULL THEN 1 ELSE 0 END AS BIT) AS HasPrintPdf,
+                   b.PressFilesReleased AS HasPrintPdf,
                    CAST(CASE WHEN b.PrintPdfUrl IS NULL AND b.PdfUrl IS NOT NULL
                              THEN 1 ELSE 0 END AS BIT) AS PdfIsReadingCopyFallback,
                    c.Name AS HeroName,

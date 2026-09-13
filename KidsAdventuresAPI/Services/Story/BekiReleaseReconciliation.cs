@@ -294,11 +294,11 @@ public sealed class BekiReleaseReconciliation(
         }
 
         var report = await ReadReportAsync(pack.UserId, pack.Id, ct);
-        var pdfUrl = report is { CustomerPdfMayPublish: true }
-            ? await StoredUrlAsync(BekiPackBlobs.ReadingPdfName(pack.UserId, pack.Id), ct)
-            : null;
 
-        if (string.IsNullOrWhiteSpace(pdfUrl))
+        // The verdict, not a blob. This asked storage for the reading copy and refused to revive a
+        // book that did not have one, which after the files stopped being kept is every book: a
+        // run the sweep buried could never be brought back, however complete its artwork was.
+        if (report is not { CustomerPdfMayPublish: true })
         {
             return BekiReconcileResult.No(BekiReconcileOutcomes.Incomplete,
                 "the canonical PDF is withheld; reconciliation cannot mark the book Completed.");
@@ -311,7 +311,8 @@ public sealed class BekiReleaseReconciliation(
             AdventurePackStatus.Failed,
             AdventurePackStatus.Completed,
             contentJson,
-            pdfUrl,
+            // No file to point at; the release below is what lets the parent download.
+            null,
             // The failure message goes with the failure. The alarm below is what keeps the burial on
             // the record; leaving the sentence on a row that is Completed would put an error on a
             // book the parent can read.
@@ -334,7 +335,6 @@ public sealed class BekiReleaseReconciliation(
             // decides by what the pack says, and handing it a stale copy would have it re-publish a
             // column this call has already written, or skip one it has not.
             pack.Status = AdventurePackStatus.Completed;
-            pack.PdfUrl = pdfUrl;
             pack.GeneratedJson = contentJson;
 
             // The locked form: this method is holding the gate already, and asking for it again
@@ -561,65 +561,58 @@ public sealed class BekiReleaseReconciliation(
 
         var press = false;
 
-        if (!report.PrintReady && !string.IsNullOrWhiteSpace(pack.PrintPdfUrl))
+        /*
+          Releasing is a permission recorded, not a file found.
+
+          Both halves used to be published by writing the url of a blob, which meant this method
+          could only ever release a book whose PDF somebody had kept. No PDF of a book is kept now
+          - the reading copy is composed for the click that asks for it and the printer's is made
+          in the operator panel - so the lookup answered "not in storage" for every book, and a
+          verdict that unlocked a book released nothing. The flag says the thing the url was only
+          ever standing in for.
+
+          The url is still revoked alongside it, for the books made before the files stopped being
+          kept: those carry a real one, the print download still falls back to it, and a verdict
+          that withdraws print readiness has to take it away too.
+        */
+        if (!report.PrintReady)
         {
-            await packRepository.UpdatePrintPdfUrlAsync(pack.Id, null, ct);
-            pack.PrintPdfUrl = null;
+            if (!string.IsNullOrWhiteSpace(pack.PrintPdfUrl))
+            {
+                await packRepository.UpdatePrintPdfUrlAsync(pack.Id, null, ct);
+                pack.PrintPdfUrl = null;
+            }
+
+            if (pack.PressFilesReleased)
+            {
+                await packRepository.SetPressFilesReleasedAsync(pack.Id, false, ct);
+                pack.PressFilesReleased = false;
+            }
         }
 
-        if (report.PrintReady && report.CustomerPdfMayPublish
-            && string.IsNullOrWhiteSpace(pack.PrintPdfUrl))
+        if (report.PrintReady && report.CustomerPdfMayPublish && !pack.PressFilesReleased)
         {
-            var pressName = await PressPdfNameAsync(pack, ct);
+            await packRepository.SetPressFilesReleasedAsync(pack.Id, true, ct);
 
-            if (await blobStorage.ExistsAsync(pressName, ct)
-                && await StoredUrlAsync(pressName, ct) is { } pressUrl)
-            {
-                await packRepository.UpdatePrintPdfUrlAsync(pack.Id, pressUrl, ct);
-
-                // The in-memory row follows the write, for the reason the revival path does it: a
-                // caller that consults this pack again — or calls here twice — must not see a column
-                // that has already been written as still empty.
-                pack.PrintPdfUrl = pressUrl;
-                press = true;
-            }
-            else
-            {
-                logger.LogWarning(
-                    "Beki pack {PackId}: the printer's file is unlocked but {PressBlob} is not in "
-                    + "storage, so the print download stays held.", pack.Id, pressName);
-            }
+            // The in-memory row follows the write, for the reason the revival path does it: a
+            // caller that consults this pack again — or calls here twice — must not see a flag
+            // that has already been written as still unset.
+            pack.PressFilesReleased = true;
+            press = true;
         }
 
         if (!report.CustomerPdfMayPublish
-            || !string.IsNullOrWhiteSpace(pack.PdfUrl)
+            || pack.CustomerPdfReleased
             || pack.Status != AdventurePackStatus.Completed)
         {
             return new BekiPublishOutcome(false, press);
         }
 
-        var url = await StoredUrlAsync(BekiPackBlobs.ReadingPdfName(pack.UserId, pack.Id), ct);
-
-        if (url is null)
-        {
-            logger.LogWarning(
-                "Beki pack {PackId}: the customer PDF is unlocked but is not in storage, so there "
-                + "is nothing to publish.", pack.Id);
-            return new BekiPublishOutcome(false, press);
-        }
-
-        var published = await packRepository.TryUpdateStatusAsync(
-            pack.Id,
-            AdventurePackStatus.Completed,
-            AdventurePackStatus.Completed,
-            pack.GeneratedJson,
-            url,
-            null,
-            ct);
+        var published = await packRepository.TryMarkCustomerPdfReleasedAsync(pack.Id, ct);
 
         if (published)
         {
-            pack.PdfUrl = url;
+            pack.CustomerPdfReleased = true;
         }
         else
         {
@@ -711,6 +704,8 @@ public sealed class BekiReleaseReconciliation(
         pack.Status = current.Status;
         pack.PdfUrl = current.PdfUrl;
         pack.PrintPdfUrl = current.PrintPdfUrl;
+        pack.CustomerPdfReleased = current.CustomerPdfReleased;
+        pack.PressFilesReleased = current.PressFilesReleased;
         pack.GeneratedJson = current.GeneratedJson;
     }
 
@@ -733,11 +728,9 @@ public sealed class BekiReleaseReconciliation(
             }
         }
 
-        if (!await blobStorage.ExistsAsync(BekiPackBlobs.ReadingPdfName(pack.UserId, pack.Id), ct))
-        {
-            missing.Add("the reading PDF");
-        }
-
+        // The reading PDF is deliberately not looked for. It was an artifact of a finished book
+        // while one was kept; it is now composed for whoever asks, so its absence says nothing
+        // about whether this book is finished - and asking for it here failed every revival.
         return missing;
     }
 
@@ -818,31 +811,6 @@ public sealed class BekiReleaseReconciliation(
             logger.LogWarning(ex, "Release gates for pack {PackId} could not be read.", packId);
             return null;
         }
-    }
-
-    /// <summary>
-    /// Resolve the separate admin-prepared print PDF. Historical unified books retain their
-    /// reading artifact only when its integrity record explicitly names print as a consumer.
-    /// </summary>
-    private async Task<string> PressPdfNameAsync(
-        Domain.Entities.AdventurePack pack, CancellationToken ct)
-    {
-        var interior = BekiPackBlobs.InteriorPdfName(pack.UserId, pack.Id);
-        if (await blobStorage.ExistsAsync(interior, ct)) return interior;
-
-        // Only historical unified PDFs may serve both roles. New reading copies explicitly
-        // omit print from their consumer list and must never be published by approval alone.
-        var integrity = BekiPackBlobs.CanonicalIntegrityName(pack.UserId, pack.Id);
-        if (await blobStorage.ExistsAsync(integrity, ct))
-        {
-            await using var stream = await blobStorage.DownloadAsync(integrity, ct);
-            using var record = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
-            if (record.RootElement.TryGetProperty("consumers", out var consumers)
-                && consumers.ValueKind == JsonValueKind.Array
-                && consumers.EnumerateArray().Any(c => c.GetString() == "print"))
-                return BekiPackBlobs.ReadingPdfName(pack.UserId, pack.Id);
-        }
-        return interior;
     }
 
     /// <summary>
