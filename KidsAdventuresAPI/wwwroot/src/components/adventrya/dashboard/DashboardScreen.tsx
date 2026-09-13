@@ -1233,7 +1233,10 @@ function BookCard({
     client-side move does not cancel a fetch. Both screens report into one place now, so the
     shelf shows the build it did not start.
   */
-  const pdfBusy = ownPdfBusy || usePdfDownloading(pack.id);
+  // Read first, combine after. Behind `||` the hook is only called while this card is idle, which
+  // is a hook that comes and goes between renders - the one thing they may not do.
+  const readerPdfBusy = usePdfDownloading(pack.id);
+  const pdfBusy = ownPdfBusy || readerPdfBusy;
   /*
     What the build is doing, while it does it.
 
