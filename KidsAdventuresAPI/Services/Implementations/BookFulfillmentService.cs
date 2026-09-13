@@ -463,7 +463,30 @@ public sealed class BookFulfillmentService(
             ? await masterStoryRunRepository.GetByIdAsync(runId, cancellationToken)
             : null;
 
-        if (FastPreviewPlan.IsFast(storedRun)) return;
+        if (FastPreviewPlan.IsFast(storedRun))
+        {
+            /*
+              A fast preview has no story to adopt - the composite pipeline plans its own eight
+              spreads - which is why nothing below applies to one. The cover went with it, and it
+              should not have: the parent chose this book by looking at that picture and paid for
+              it, and the book was then created with no cover at all. So every screen showing it
+              fell back to the world's stock painting for the minutes the pipeline takes, and the
+              one image they had already been shown of their own child was not among them.
+
+              A placeholder in the honest sense: the pipeline writes the composed cover over this
+              the moment it has one.
+            */
+            var previewCover = await StorePreviewCoverAsync(
+                book, storedRun?.CoverImageUrl ?? draft.PreviewCoverImage, cancellationToken);
+
+            if (previewCover is not null)
+            {
+                await packRepository.UpdateBookPresentationAsync(
+                    book.Id, title: null, coverImageUrl: previewCover, cancellationToken);
+            }
+
+            return;
+        }
 
         var storyJson = storedRun?.ContentJson ?? draft.PreviewStoryJson;
         var coverSource = storedRun?.CoverImageUrl ?? draft.PreviewCoverImage;
