@@ -743,6 +743,15 @@ public sealed class BekiPackFulfillment(
                     AdventurePackStatus.Completed, JsonSerializer.Serialize(content, JsonOptions), null,
                     null, cancellationToken))
                 throw new InvalidOperationException("Book state changed before recovery completed.");
+
+            // Recovery ends with a finished book, so it records the release the same way the
+            // fulfilment job does. Without it a recovered book comes back withheld in the console.
+            if (reconciliation is not null)
+            {
+                pack.Status = AdventurePackStatus.Completed;
+                await reconciliation.PublishUnlockedFilesLockedAsync(pack, release, cancellationToken);
+            }
+
             await packRepository.UpdateProgressAsync(pack.Id, "მზადაა! წიგნი ბიბლიოთეკაშია.", 100, cancellationToken);
             await ResolvePrintHoldAlarmsAsync(pack, work, "stored-art recovery", cancellationToken);
             logger.LogInformation(
@@ -2658,6 +2667,27 @@ public sealed class BekiPackFulfillment(
 
             if (completed)
             {
+                /*
+                  The release, recorded where the url used to be.
+
+                  The write above puts null in the customer column because there is no file left to
+                  name, and the verdict a few lines up is what allowed this book to be called
+                  finished at all. Nothing else would write it down: the withheld sweep runs on a
+                  policy change and the approval endpoint on a signature, so a book that simply
+                  finished cleanly sat with both flags unset - shown as withheld in the console with
+                  no download buttons, its printer's files unreleased, and its parcel held behind the
+                  print queue's guard, while the family could read it perfectly well.
+
+                  Through the shared publisher in its locked form: this job is inside the pack's lock
+                  already, and the compare-and-set that decides whether this caller is the one that
+                  released the book belongs in one place rather than copied to here.
+                */
+                if (reconciliation is not null && release is not null)
+                {
+                    pack.Status = AdventurePackStatus.Completed;
+                    await reconciliation.PublishUnlockedFilesLockedAsync(pack, release, cancellationToken);
+                }
+
                 await packRepository.UpdateProgressAsync(
                     packId, testingFlow ? "საცდელი წიგნი მზადაა: ყდა და 2 გაშლა." : "მზადაა! წიგნი ბიბლიოთეკაშია.", 100, cancellationToken);
 
