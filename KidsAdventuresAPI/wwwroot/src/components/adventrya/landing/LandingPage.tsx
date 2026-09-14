@@ -1,4 +1,5 @@
 import { Link } from "@tanstack/react-router";
+import { MessageCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { SiteFooter } from "@/components/adventrya/SiteFooter";
@@ -128,10 +129,11 @@ function Pricing() {
           </div>
           <strong className="landing-v3-price">{formatGel(PRICES.digital)}</strong>
           <ul>
-            {L.digital.features.map((feature) => (
+            {L.digital.features.map((feature, index) => (
               <li key={feature}>
                 <CheckIcon />
-                {feature}
+                <span className="landing-price-feature-desktop">{feature}</span>
+                <span className="landing-price-feature-mobile">{L.digital.mobileFeatures[index]}</span>
               </li>
             ))}
           </ul>
@@ -150,10 +152,11 @@ function Pricing() {
           </div>
           <strong className="landing-v3-price">{formatGel(PRICES.print)}</strong>
           <ul>
-            {L.print.features.map((feature) => (
+            {L.print.features.map((feature, index) => (
               <li key={feature}>
                 <CheckIcon />
-                {feature}
+                <span className="landing-price-feature-desktop">{feature}</span>
+                <span className="landing-price-feature-mobile">{L.print.mobileFeatures[index]}</span>
               </li>
             ))}
           </ul>
@@ -214,7 +217,10 @@ function Faq() {
           {L.titleLine1} <em>{L.titleEm}</em>
         </h2>
         <span>
-          <Link to="/contact">{L.contactLink}</Link>
+          <Link to="/contact" className="landing-v3-faq-contact">
+            <MessageCircle size={20} aria-hidden="true" />
+            {L.contactLink}
+          </Link>
         </span>
       </div>
 

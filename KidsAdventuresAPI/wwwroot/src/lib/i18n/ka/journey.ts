@@ -448,6 +448,8 @@ export const journey = {
   },
 
   generating: {
+    coverLabel: "ყდა",
+    introLabel: "ინტრო",
     heading: "ახლა იქმნება",
     /* Beki's last line, the one the checkout was leading to. */
     bekiLine: "წიგნი როცა შეიქმნება, შეტყობინებას გამოგიგზავნით",

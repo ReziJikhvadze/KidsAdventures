@@ -4773,3 +4773,103 @@
     animation-duration: 2600ms;
   }
 }
+
+/* Let the sign-in content set its height, including when the keyboard opens. */
+.journey-auth.ux1-shell .ux-auth-stage {
+  height: auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+  gap: clamp(24px, 4vw, 64px);
+  align-items: center;
+}
+
+.ux-auth-stage > .ux-auth-book,
+.ux-auth-stage > .auth-panel {
+  min-width: 0;
+  width: 100%;
+  justify-self: center;
+}
+
+.ux-auth-stage .ux-auth-book {
+  gap: 20px;
+}
+
+.ux-auth-stage .ux-auth-book .storybook-display {
+  flex: none;
+  transform: none;
+}
+
+.ux-auth-stage .ux-auth-book > p {
+  margin: 0;
+  justify-content: center;
+  text-align: center;
+  color: #efe8f2;
+}
+
+.ux-auth-stage > .auth-panel {
+  max-height: none;
+  overflow: visible;
+}
+
+.ux-auth-stage .auth-panel > h1 {
+  font-size: clamp(24px, 3vw, 36px);
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.ux-auth-stage .auth-panel > .eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ux-auth-stage .auth-panel > .eyebrow svg {
+  flex-shrink: 0;
+}
+
+@media (max-width: 980px) {
+  .journey-auth.ux1-shell .ux-auth-stage {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 28px;
+    padding: 24px 20px 40px;
+  }
+
+  .ux-auth-stage .ux-auth-book .storybook-display {
+    --book-width: min(240px, 62vw);
+  }
+
+  .ux-auth-stage .ux-auth-book {
+    gap: 16px;
+  }
+
+  .ux-auth-stage > .auth-panel {
+    padding: 24px 20px;
+  }
+}
+
+/* Finished preview art includes its own lettering; keep the full cover or intro visible. */
+.ux-generating .generation-book.has-rendered-art .ux-cover-art {
+  background-size: contain;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.generation-making-of > button {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.generation-making-of > button:focus-visible {
+  outline: 2px solid var(--story-gold);
+  outline-offset: 3px;
+}
+
+.generation-making-of > button img {
+  display: block;
+  object-fit: contain;
+}

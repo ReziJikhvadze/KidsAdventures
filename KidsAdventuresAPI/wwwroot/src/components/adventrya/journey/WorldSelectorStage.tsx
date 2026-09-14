@@ -507,36 +507,8 @@ function WorldStageArt({
   const worldById = useWorldById();
   const copy = t.journey.worldSelector;
   const art = { backgroundImage: `url("${SELECTOR_ART[variant]}")` };
-
-  return (
-    <section
-      className={`art-stage ${variant}-stage${selected ? " has-selection" : ""}`}
-      data-variant={variant}
-      data-preview={previewed ?? undefined}
-      data-selected={selected ?? undefined}
-      aria-label={copy.stageLabel}
-    >
-      <div className="ambient-art" style={art} aria-hidden="true" />
-
-      <div className={`master-frame ${variant}-frame`}>
-        <div className="master-art" role="img" aria-label={copy.artLabel} style={art} />
-        <div className="art-dimmer" aria-hidden="true" />
-
-        <div className="focus-layers" aria-hidden="true">
-          <div className={`focus-layer${selected ? ` focus-${selected}` : ""}`} style={art} />
-          <div className="center-preserve" style={art} />
-        </div>
-
-        <div aria-hidden="true">
-          {/* Keyed by the run so choosing the same island twice replays the flight: without it
-              React keeps the finished SVG and the star never leaves Beki's heart again. */}
-          {selected ? (
-            <MagicFlight key={`${selected}-${flightRun}`} variant={variant} worldId={selected} />
-          ) : null}
-        </div>
-
-        <div className="edge-vignette" aria-hidden="true" />
-
+  const standaloneMobile = variant === "mobile" && !embedded;
+  const header = (
         <header className="experience-header">
           {/*
             The only way off this page used to be the browser's own back button: the map is a
@@ -572,6 +544,40 @@ function WorldStageArt({
             not need to be told there are two more forms behind this one.
           */}
         </header>
+  );
+
+  return (
+    <section
+      className={`art-stage ${variant}-stage${standaloneMobile ? " standalone-mobile-stage" : ""}${selected ? " has-selection" : ""}`}
+      data-variant={variant}
+      data-preview={previewed ?? undefined}
+      data-selected={selected ?? undefined}
+      aria-label={copy.stageLabel}
+    >
+      <div className="ambient-art" style={art} aria-hidden="true" />
+
+      {standaloneMobile ? header : null}
+
+      <div className={`master-frame ${variant}-frame`}>
+        <div className="master-art" role="img" aria-label={copy.artLabel} style={art} />
+        <div className="art-dimmer" aria-hidden="true" />
+
+        <div className="focus-layers" aria-hidden="true">
+          <div className={`focus-layer${selected ? ` focus-${selected}` : ""}`} style={art} />
+          <div className="center-preserve" style={art} />
+        </div>
+
+        <div aria-hidden="true">
+          {/* Keyed by the run so choosing the same island twice replays the flight: without it
+              React keeps the finished SVG and the star never leaves Beki's heart again. */}
+          {selected ? (
+            <MagicFlight key={`${selected}-${flightRun}`} variant={variant} worldId={selected} />
+          ) : null}
+        </div>
+
+        <div className="edge-vignette" aria-hidden="true" />
+
+        {!standaloneMobile ? header : null}
 
         <div className="world-map">
           {SELECTOR_WORLDS.map((world) => {

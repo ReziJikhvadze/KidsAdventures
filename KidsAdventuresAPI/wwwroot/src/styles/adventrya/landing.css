@@ -2717,3 +2717,127 @@
     width: 13px;
   }
 }
+
+.landing-price-feature-mobile {
+  display: none;
+}
+
+@media (max-width: 780px) {
+  .landing-v3-pricing .landing-v3-price-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .landing-v3-pricing .landing-v3-price-cards article {
+    min-width: 0;
+    min-height: 0;
+    padding: 32px 12px 16px;
+    border-radius: 18px;
+  }
+
+  .landing-v3-pricing .landing-price-feature-desktop,
+  .landing-v3-pricing .landing-v3-price-card-head small {
+    display: none;
+  }
+
+  .landing-v3-pricing .landing-price-feature-mobile {
+    display: block;
+    min-width: 0;
+    overflow-wrap: break-word;
+  }
+
+  .landing-v3-pricing .landing-v3-price-card-head > span {
+    min-height: 38px;
+    font-size: 14px;
+    line-height: 1.35;
+  }
+
+  .landing-v3-pricing .landing-v3-price {
+    margin-top: 8px;
+    font-size: 32px;
+  }
+
+  .landing-v3-pricing .landing-v3-price-cards ul {
+    gap: 10px;
+    margin: 16px 0 20px;
+  }
+
+  .landing-v3-pricing .landing-v3-price-cards li {
+    gap: 6px;
+    font-size: 12px;
+    line-height: 1.4;
+  }
+
+  .landing-v3-pricing .landing-v3-price-cards li svg {
+    width: 12px;
+    height: 12px;
+    margin-top: 2px;
+  }
+
+  .landing-v3-pricing .landing-v3-price-cards article > a {
+    min-height: 44px;
+    gap: 4px;
+    padding: 8px 5px;
+    font-size: 11px;
+    text-align: center;
+  }
+
+  .landing-v3-pricing .landing-v3-upgrade {
+    margin-top: 10px;
+    font-size: 11px;
+    line-height: 1.45;
+  }
+
+  .landing-v3-pricing .landing-v3-popular {
+    left: 8px;
+    right: 8px;
+    height: 24px;
+    padding: 0 3px;
+    font-size: 9px;
+  }
+}
+
+@media (max-width: 359px) {
+  .landing-v3-pricing .landing-v3-price-cards {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+
+  .landing-v3-pricing .landing-v3-price-card-head > span {
+    min-height: 0;
+  }
+}
+
+.landing-v3-faq-heading a.landing-v3-faq-contact {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 48px;
+  max-width: 100%;
+  padding: 13px 20px;
+  color: #2e1d45;
+  background: linear-gradient(135deg, #f3d28a, #edae57);
+  border: 1px solid #dca34f;
+  border-radius: 14px;
+  box-shadow: 0 5px 14px #35234814;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.4;
+  text-align: center;
+  text-decoration: none;
+}
+
+.landing-v3-faq-contact svg {
+  flex-shrink: 0;
+}
+
+.landing-v3-faq-heading a.landing-v3-faq-contact:hover {
+  background: #f3ce85;
+}
+
+.landing-v3-faq-heading a.landing-v3-faq-contact:focus-visible {
+  outline: 3px solid #654585;
+  outline-offset: 4px;
+}

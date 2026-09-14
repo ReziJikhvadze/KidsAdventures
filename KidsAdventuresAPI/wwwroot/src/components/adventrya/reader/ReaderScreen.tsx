@@ -375,6 +375,12 @@ export function ReaderScreen() {
             isUnlocked={isUnlocked}
             isSpreadBook={pack.isSpreadBook}
             fullBleedSpreads={pack.isSpreadBook}
+            endAction={
+              <Link to="/dashboard" className="button button-primary">
+                <CircleUserRound aria-hidden="true" size={20} />
+                {t.story.reader.backToMySpace}
+              </Link>
+            }
             interactive
           />
         </div>
@@ -417,10 +423,6 @@ export function ReaderScreen() {
         >
           <CircleUserRound aria-hidden="true" />
         </Link>
-        <span className="reader-bar-title">
-          <small>{heroName}</small>
-          <strong>{title}</strong>
-        </span>
         <span className="reader-bar-end">
           {canVisitWorldPassport && pack ? (
             <Link

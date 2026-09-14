@@ -38,6 +38,7 @@ export const story = {
   },
 
   reader: {
+    backToMySpace: "ჩემს სივრცეში გადასვლა",
     digitalBook: "ს ციფრული წიგნი",
     library: " ბიბლიოთეკა",
     flipPrefix: "დაიწყე კითხვა ",

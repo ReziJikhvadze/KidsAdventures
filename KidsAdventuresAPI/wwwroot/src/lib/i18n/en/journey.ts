@@ -383,6 +383,8 @@ export const journey = {
   },
 
   generating: {
+    coverLabel: "Cover",
+    introLabel: "Intro",
     heading: "Being created now",
     /* Beki's last line, the one the checkout was leading to. */
     bekiLine: "We will send you a notification the moment the book is ready",

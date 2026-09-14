@@ -1405,3 +1405,40 @@
   color: #3d2c63de;
   text-shadow: 0 1px 4px rgba(255, 251, 240, 0.85);
 }
+
+@media (max-width: 780px) {
+  /* Reserve a real row for page turns. Reset the vertical transform inherited
+     from the desktop arrows so the buttons cannot overlap the cover. */
+  .reader-shell-book .storybook.storybook-full .storybook-controls {
+    position: static;
+    inset: auto;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 18px;
+    margin: 24px 0 0;
+    pointer-events: auto;
+  }
+
+  .reader-shell-book .storybook.storybook-full .storybook-controls button {
+    position: static;
+    inset: auto;
+    transform: none;
+    flex: 0 0 48px;
+    width: 48px;
+    height: 48px;
+    min-height: 48px;
+    max-width: none;
+    padding: 0;
+  }
+}
+
+@media (max-width: 780px) and (orientation: portrait) {
+  /* A closed cover can use the phone's width; it need not stay half as wide
+     as an open spread. Keep room below it for controls and the reading hint. */
+  .reader-shell-book .storybook-full.is-closed {
+    --book-width: min(calc(100vw - 40px), calc((100svh - 220px) * 1.1));
+    width: 100%;
+  }
+}

@@ -283,6 +283,9 @@ public sealed class OrderStatusResponse
     /// <summary>The pack's cover image URL as stored; null until the cover is adopted or drawn.</summary>
     public string? CoverImageUrl { get; set; }
 
+    /// <summary>The already-rendered preview intro, available while the book is being made.</summary>
+    public string? IntroImageUrl { get; set; }
+
     /// <summary>
     /// True when the book this order paid for could not be made.
     ///

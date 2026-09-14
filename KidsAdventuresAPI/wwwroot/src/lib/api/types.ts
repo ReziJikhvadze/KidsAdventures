@@ -502,6 +502,7 @@ export type OrderStatusResponse = {
   worldId?: string | null;
   childName?: string | null;
   coverImageUrl?: string | null;
+  introImageUrl?: string | null;
 };
 
 export type PrintOrderStatus = "AwaitingPrint" | "Printing" | "Shipped" | "Delivered" | "Cancelled";

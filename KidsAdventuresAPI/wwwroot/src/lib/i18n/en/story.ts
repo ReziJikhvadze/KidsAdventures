@@ -29,6 +29,7 @@ export const story = {
   },
 
   reader: {
+    backToMySpace: "Go to my space",
     digitalBook: "'s digital book",
     library: " library",
     flipPrefix: "Start reading ",

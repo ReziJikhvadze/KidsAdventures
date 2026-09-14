@@ -276,7 +276,10 @@
 }
 
 .experience-shell-embedded .mobile-frame {
-  width: min(max(100%, calc(100svh * 0.462581)), calc(100% * 1.087));
+  width: 100%;
+  --crop-total: 0px;
+  --crop-band: 0px;
+  --crop-band-bottom: 0px;
 }
 
 /*
@@ -300,37 +303,16 @@
   --stage-height: max(100svh, calc(var(--frame-height) / 1.35));
 }
 
-/*
-  Room for the landing header, the way the hero already makes it.
-
-  `.landing-v3-header` is sticky and carries a negative bottom margin exactly its own height, so
-  every section on the page slides underneath it by design. This one is the section where that
-  costs something: the map fills the screen, its headline is pinned near the top of the painting,
-  and the bar ends at 69px — so "აირჩიე ჯადოსნური სამყარო" was drawn entirely behind the wordmark
-  at 320, 360, 375, 390 and 430. Not close to it, behind it, by about sixty pixels.
-
-  `.landing-v3-hero` answers the same problem by reserving `--lv3-header-h` in its own top
-  padding, and this is that, on the one stage that fills its box instead of laying out in flow.
-  Read from the token rather than from the 69px the bar actually measures on a phone: the token
-  is what every other section on the page reserves, and being a few pixels generous here is the
-  direction the error should point.
-
-  Two details make it safe. The reserve comes out of the content box rather than being added to
-  the height, so the section is still one screen tall and the page gains no scroll. And
-  `--stage-height` is restated to match that content box, because the frame subtracts it from its
-  own height to learn how much of the painting is hidden — left at 100svh it would have told the
-  headline, the wordmark and the bottom row of cards that nothing was cropped, and every one of
-  them would have offset itself by zero into the band that is now covered.
-
-  Portrait and embedded only: `/themes` is the map with no landing header over it.
-*/
+/* Let the full portrait painting determine the section height so the bottom
+   worlds and labels stay above the next section. Reserve room for the sticky header. */
 @media (orientation: portrait) {
   .experience-shell-embedded .art-stage.mobile-stage {
-    --header-reserve: calc(var(--lv3-header-h, 76px) + 10px);
-    --stage-height: calc(max(100svh, calc(var(--frame-height) / 1.35)) - var(--header-reserve));
-    height: max(100svh, calc(var(--frame-height) / 1.35));
-    max-height: max(100svh, calc(var(--frame-height) / 1.35));
-    padding-top: var(--header-reserve);
+    height: auto;
+    max-height: none;
+    min-height: 0;
+    place-items: start center;
+    overflow: hidden;
+    padding-top: calc(var(--lv3-header-h, 76px) + 10px);
   }
 }
 
@@ -1539,4 +1521,73 @@
 
 .mobile-frame .world-node.is-finished .world-finished {
   width: clamp(18px, 5vw, 26px);
+}
+
+/* The standalone mobile picker fits the full painting below a separate header.
+   Keep this scoped so the landing page can show its full-width scrolling map. */
+.experience-shell .art-stage.standalone-mobile-stage {
+  --picker-header-height: calc(80px + env(safe-area-inset-top, 0px));
+  height: 100svh;
+  max-height: 100svh;
+  min-height: 0;
+  padding-top: var(--picker-header-height);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  place-items: center;
+  overflow: hidden;
+}
+
+.standalone-mobile-stage .mobile-frame {
+  width: min(100%, calc((100svh - var(--picker-header-height) - env(safe-area-inset-bottom, 0px)) * 853 / 1844));
+  --crop-total: 0px;
+  --crop-band: 0px;
+  --crop-band-bottom: 0px;
+  container-type: inline-size;
+}
+
+.standalone-mobile-stage > .experience-header {
+  height: var(--picker-header-height);
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 18px;
+  padding: calc(10px + env(safe-area-inset-top, 0px)) 14px 10px;
+}
+
+.standalone-mobile-stage .map-header-start {
+  position: static;
+  gap: 10px;
+}
+
+.standalone-mobile-stage .map-header-mark {
+  height: 18px;
+}
+
+.standalone-mobile-stage .headline {
+  position: static;
+  width: 100%;
+  padding: 0;
+  transform: none;
+}
+
+.standalone-mobile-stage .headline p {
+  font-size: 8px;
+  letter-spacing: 0.04em;
+}
+
+.standalone-mobile-stage .headline h1 {
+  font-size: clamp(14px, 3.8vw, 17px);
+  line-height: 1.15;
+}
+
+.standalone-mobile-stage .headline span {
+  display: none;
+}
+
+.standalone-mobile-stage .world-label {
+  max-width: 43cqw;
+  padding: 5px 8px;
+}
+
+.standalone-mobile-stage .world-label .world-title {
+  font-size: clamp(11px, 4cqw, 14px);
 }

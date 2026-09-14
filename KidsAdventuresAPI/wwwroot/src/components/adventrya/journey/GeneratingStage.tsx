@@ -63,7 +63,9 @@ export function GeneratingStage({ draft, onChange }: Props) {
   const worldId: WorldId =
     draft.worldId ?? (known?.worldId && isWorldId(known.worldId) ? known.worldId : "dinosaurs");
   const world = WORLD_BY_ID[worldId];
-  const storedCover = useIllustrationUrl(draft.preview ? null : known?.coverImageUrl);
+  const storedCover = useIllustrationUrl(draft.preview?.coverImageDataUrl || known?.coverImageUrl);
+  const introSrc = useIllustrationUrl(draft.preview?.introImageUrl || known?.introImageUrl);
+  const [selectedArt, setSelectedArt] = useState<string | null>(null);
   /*
     The cover this book actually has, or an empty frame.
 
@@ -73,7 +75,7 @@ export function GeneratingStage({ draft, onChange }: Props) {
     made is known - from the draft in this tab, or from the order once it answers - or
     nothing is, and an empty board under a spinner says that without lying about it.
   */
-  const coverSrc = draft.preview?.coverImageDataUrl || storedCover || null;
+  const coverSrc = storedCover;
   const bookTitle = draft.preview?.title || known?.title?.trim() || world.bookTitle(heroName);
 
   const [step, setStep] = useState(0);
@@ -119,25 +121,13 @@ export function GeneratingStage({ draft, onChange }: Props) {
     setError(null);
     setStillWorking(false);
 
-    /*
-      What the order already knows, asked for before anything is waited on.
-
-      Everything this screen can show - the cover the parent picked, the title, how far the book
-      has got - arrives with the first status. That first status used to sit behind
-      `confirmOrder`, which reconciles the payment with the provider and, for a card paid through
-      Bog, is a round trip to the bank followed by fulfilment running inline. So the screen stood
-      empty for as long as that took: no cover, no progress line, a blank board under a spinner
-      on the page a parent lands on straight after paying.
-
-      Fired first and not awaited. It changes nothing about the reconciliation below - that still
-      runs, and the poll still starts after it - it only stops the screen pretending to know
-      nothing while the server already knows plenty.
-    */
+    // Recover preview assets immediately, including after the bank redirects to a fresh tab.
     void ordersApi
       .getOrderStatus(orderId)
       .then((current) => {
         if (cancelled) return;
         setKnown(current);
+        if (current.bookId) onChange({ bookId: current.bookId });
         if (current.progressMessage) setProgress(current.progressMessage);
         if (typeof current.progressPercent === "number") setPercent(current.progressPercent);
         if (current.packStatus) setBookStatus(current.packStatus);
@@ -148,12 +138,10 @@ export function GeneratingStage({ draft, onChange }: Props) {
 
     void (async () => {
       try {
-        // Returning from the bank: reconcile payment before polling readiness.
-        try {
-          await ordersApi.confirmOrder(orderId);
-        } catch {
-          /* confirm is best-effort when webhook already ran */
-        }
+        // Reconciliation can run fulfilment inline. Keep reading progress while it works.
+        void ordersApi.confirmOrder(orderId).catch(() => {
+          /* best-effort when the webhook already reconciled payment */
+        });
 
         // A poll window that runs out is not a failure — the notice goes up and polling
         // simply starts again, so a parent who stays on this page is still taken to the
@@ -230,7 +218,7 @@ export function GeneratingStage({ draft, onChange }: Props) {
   // each finished spread is fetched once and kept — the endpoint returns an empty list for a
   // legacy-pipeline book, and this whole effect quietly does nothing.
   useEffect(() => {
-    const bookId = draft.bookId;
+    const bookId = draft.bookId || known?.bookId;
     if (!bookId) return;
 
     let cancelled = false;
@@ -246,11 +234,11 @@ export function GeneratingStage({ draft, onChange }: Props) {
         setSpreadsDone(status.spreads.length);
         for (const spread of status.spreads) {
           if (seen.has(spread)) continue;
-          seen.add(spread);
           const url = await adventurePacksApi.fetchIllustrationObjectUrl(
             adventurePacksApi.makingOfImagePath(bookId, spread),
           );
           if (cancelled) return;
+          seen.add(spread);
           setPages((prev) =>
             [...prev.filter((p) => p.spread !== spread), { spread, url }].sort(
               (a, b) => a.spread - b.spread,
@@ -268,12 +256,18 @@ export function GeneratingStage({ draft, onChange }: Props) {
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [draft.bookId]);
+  }, [draft.bookId, known?.bookId]);
 
   // The freshest picture takes the book's own frame, so the cover the parent already saw
   // gives way to pages they have not.
   const newest = pages.length > 0 ? pages[pages.length - 1] : null;
-  const artSrc = newest?.url ?? coverSrc;
+  const artSrc = selectedArt ?? newest?.url ?? coverSrc;
+  const artwork = [
+    ...(coverSrc ? [{ id: "cover", url: coverSrc, label: t.journey.generating.coverLabel }] : []),
+    ...(introSrc ? [{ id: "intro", url: introSrc, label: t.journey.generating.introLabel }] : []),
+    ...pages.map((page) => ({ id: `spread-${page.spread}`, url: page.url, label: t.journey.generating.pageAlt(page.spread) })),
+  ];
+  const renderedArt = Boolean(introSrc || draft.preview?.coverRevisionId || newest);
 
   /*
     Whether anything on this screen is yet the parent's own book.
@@ -319,7 +313,10 @@ export function GeneratingStage({ draft, onChange }: Props) {
             <i />
             <i />
           </div>
-          <article className={`ux-book-cover generation-book${bookKnown ? "" : " is-loading"}`}>
+          <article
+            className={`ux-book-cover generation-book${bookKnown ? "" : " is-loading"}${bookKnown && renderedArt ? " has-rendered-art" : ""}`}
+            aria-label={bookKnown ? bookTitle : undefined}
+          >
             {artSrc ? (
               <div
                 className="ux-cover-art"
@@ -327,10 +324,10 @@ export function GeneratingStage({ draft, onChange }: Props) {
                 aria-hidden="true"
               />
             ) : null}
-            <div className="ux-cover-shade" aria-hidden="true" />
-            <img className="ux-cover-brand" src={BEKI_MARK_WHITE_URL} alt={BRAND_NAME} />
+            {!renderedArt ? <div className="ux-cover-shade" aria-hidden="true" /> : null}
+            {!renderedArt ? <img className="ux-cover-brand" src={BEKI_MARK_WHITE_URL} alt={BRAND_NAME} /> : null}
             {bookKnown ? (
-              <h2>{bookTitle}</h2>
+              !renderedArt ? <h2>{bookTitle}</h2> : null
             ) : (
               <span className="generation-book-loading" role="status">
                 <Loader2 aria-hidden="true" />
@@ -411,15 +408,18 @@ export function GeneratingStage({ draft, onChange }: Props) {
           in the portal on a phone now that the cover fills its frame, and this is the one column
           that has room at every width.
         */}
-        {pages.length > 0 ? (
+        {artwork.length > 0 ? (
           <div className="generation-making-of" aria-label={t.journey.generating.pagesDrawn}>
-            {pages.map((page) => (
-              <img
-                key={page.spread}
-                src={page.url}
-                alt={t.journey.generating.pageAlt(page.spread)}
-                className={page.spread === newest?.spread ? "is-newest" : ""}
-              />
+            {artwork.map((art) => (
+              <button
+                key={art.id}
+                type="button"
+                aria-label={art.label}
+                aria-pressed={artSrc === art.url}
+                onClick={() => setSelectedArt(art.url)}
+              >
+                <img src={art.url} alt={art.label} className={artSrc === art.url ? "is-newest" : ""} />
+              </button>
             ))}
           </div>
         ) : null}

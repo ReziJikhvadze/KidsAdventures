@@ -952,14 +952,26 @@ public sealed class BekiPackFulfillment(
                 + "re-compositing the stored bases as they are.", pack.Id, drift);
         }
 
-        var stored = new List<BekiSpreadArtwork>();
-        foreach (var entry in manifest.Entries.OrderBy(e => e.SpreadNumber))
-            stored.Add(new BekiSpreadArtwork(entry.SpreadNumber,
-                await blobStorage.DownloadBytesFromStoredUrlAsync(entry.StoredUrl, cancellationToken)));
-        var wrap = await ReadRequiredBlobAsync(
+        // These immutable spread files are independent. Bound concurrent downloads to four
+        // so preparing a reading copy does not pay eight storage round trips in sequence.
+        var entries = manifest.Entries.OrderBy(e => e.SpreadNumber).ToArray();
+        var stored = new BekiSpreadArtwork[entries.Length];
+        await Parallel.ForEachAsync(
+            Enumerable.Range(0, entries.Length),
+            new ParallelOptions { MaxDegreeOfParallelism = 4, CancellationToken = cancellationToken },
+            async (index, ct) =>
+            {
+                var entry = entries[index];
+                stored[index] = new BekiSpreadArtwork(entry.SpreadNumber,
+                    await blobStorage.DownloadBytesFromStoredUrlAsync(entry.StoredUrl, ct));
+            });
+        var wrapTask = ReadRequiredBlobAsync(
             BekiPackBlobs.CoverWrapCompositeName(pack.UserId, pack.Id), cancellationToken);
-        var receipt = System.Text.Encoding.UTF8.GetString(await ReadRequiredBlobAsync(
-            BekiPackBlobs.CoverCompositionName(pack.UserId, pack.Id), cancellationToken));
+        var receiptTask = ReadRequiredBlobAsync(
+            BekiPackBlobs.CoverCompositionName(pack.UserId, pack.Id), cancellationToken);
+        await Task.WhenAll(wrapTask, receiptTask);
+        var wrap = await wrapTask;
+        var receipt = System.Text.Encoding.UTF8.GetString(await receiptTask);
         if (FastPreviewPlan.IsFast(run))
         {
             var revision = await (fastPreview ?? throw new InvalidOperationException("Preview service unavailable.")).ReadAsync(run.Id, cancellationToken);

@@ -11,6 +11,7 @@ using AdventurePacks.Api.DTOs.Print;
 using AdventurePacks.Api.Repositories.Interfaces;
 using AdventurePacks.Api.Services.Interfaces;
 using AdventurePacks.Api.Services.Story;
+using AdventurePacks.Api.Services.Story.Composite;
 
 namespace AdventurePacks.Api.Services.Implementations;
 
@@ -1073,6 +1074,12 @@ public sealed class OrderService(
             FailureReason = order.FailureReason
         };
 
+        // Preview assets exist before the paid book is enqueued or payment is reconciled.
+        var preview = await PreviewFacetsAsync(order, cancellationToken);
+        response.Title = preview.Title;
+        response.CoverImageUrl = preview.CoverImageUrl;
+        response.IntroImageUrl = preview.IntroImageUrl;
+
         if (order.BookId is { } bookId)
         {
             var book = await packRepository.GetByIdAsync(bookId, order.UserId, cancellationToken);
@@ -1128,7 +1135,6 @@ public sealed class OrderService(
                   cover at a storage path this account may read. It is a stand-in and is
                   dropped the moment the book has its own, which is why it is read second.
                 */
-                var preview = await PreviewFacetsAsync(order, cancellationToken);
                 response.CoverImageUrl = NullIfBlank(book.CoverImageUrl) ?? preview.CoverImageUrl;
 
                 /*
@@ -1226,13 +1232,13 @@ public sealed class OrderService(
     /// The cover of the preview this order was placed from, or null when there is no run to ask,
     /// the run has expired, or it never held one.
     /// </summary>
-    private async Task<(string? Title, string? CoverImageUrl)> PreviewFacetsAsync(
+    private async Task<(string? Title, string? CoverImageUrl, string? IntroImageUrl)> PreviewFacetsAsync(
         Order order,
         CancellationToken cancellationToken)
     {
         if (TryReadDraft(order)?.PreviewBookId is not { } runId)
         {
-            return (null, null);
+            return (null, null, null);
         }
 
         try
@@ -1240,7 +1246,7 @@ public sealed class OrderService(
             var run = await masterStoryRunRepository.GetByIdAsync(runId, cancellationToken);
             if (run is null)
             {
-                return (null, null);
+                return (null, null, null);
             }
 
             /* The run has no title column; the rendered story it already holds does. */
@@ -1258,13 +1264,16 @@ public sealed class OrderService(
                 }
             }
 
-            return (title, NullIfBlank(run.CoverImageUrl));
+            var introUrl = FastPreviewPlan.IsFast(run) && !string.IsNullOrWhiteSpace(run.CoverImageUrl)
+                ? $"/api/adventure-packs/guest-preview/{run.Id}/intro"
+                : null;
+            return (title, NullIfBlank(run.CoverImageUrl), introUrl);
         }
         catch (Exception ex)
         {
             /* A missing stand-in is a worse picture, never a failed status poll. */
             logger.LogDebug(ex, "Preview facets for order {OrderId} could not be read.", order.Id);
-            return (null, null);
+            return (null, null, null);
         }
     }
 

@@ -134,6 +134,7 @@ export const landing = {
     digital: {
       name: "Digital",
       note: "Ready to read online",
+      mobileFeatures: ["Personal illustrations", "PDF version"],
       features: [
         " An illustrated digital story shaped personally around your child",
         " PDF download",
@@ -144,6 +145,7 @@ export const landing = {
     print: {
       name: "Printed + Digital",
       note: "A keepsake you can hold",
+      mobileFeatures: ["Personal illustrations", "PDF version", "Printed book", "Free delivery"],
       features: [
         " An illustrated digital story shaped personally around your child",
         " PDF download",
@@ -218,7 +220,7 @@ export const landing = {
     eyebrow: "Frequently asked questions",
     titleLine1: "Everything to know before",
     titleEm: "the first adventure",
-    contactLink: "Got a question? We're here.",
+    contactLink: "Have a question? Contact us",
     items: [
       {
         question: "What do I see before paying?",

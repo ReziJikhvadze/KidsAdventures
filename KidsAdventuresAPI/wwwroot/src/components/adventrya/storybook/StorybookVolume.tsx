@@ -1,4 +1,4 @@
-import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { ChevronLeft, ChevronRight, Lock, Maximize2, X } from "lucide-react";
 import { Link } from "@tanstack/react-router";
@@ -137,6 +137,8 @@ export type StorybookVolumeProps = {
    * printed one does.
    */
   frontMatter?: PlateSpread[];
+  /** A next step offered beneath the back cover in the completed reader. */
+  endAction?: ReactNode;
 };
 
 /** Beki's canonical portrait, shown until a book carries one drawn for its own world. */
@@ -851,6 +853,7 @@ export function StorybookVolume({
   autoAdvanceMs,
   backImageUrl,
   frontMatter = NO_FRONT_MATTER,
+  endAction,
 }: StorybookVolumeProps) {
   const t = useT();
   /*
@@ -1715,7 +1718,11 @@ export function StorybookVolume({
             next and the progress counter above are what remain, and nothing is unreachable —
             every page is still one turn from its neighbour.
           */}
-          <p className="storybook-gesture-hint">{t.story.storybook.gestureHint}</p>
+          {backIsOrigin && endAction ? (
+            <div className="storybook-end-action">{endAction}</div>
+          ) : (
+            <p className="storybook-gesture-hint">{t.story.storybook.gestureHint}</p>
+          )}
         </>
       ) : null}
     </div>
