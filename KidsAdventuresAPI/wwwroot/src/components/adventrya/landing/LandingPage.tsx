@@ -133,7 +133,9 @@ function Pricing() {
               <li key={feature}>
                 <CheckIcon />
                 <span className="landing-price-feature-desktop">{feature}</span>
-                <span className="landing-price-feature-mobile">{L.digital.mobileFeatures[index]}</span>
+                <span className="landing-price-feature-mobile">
+                  {L.digital.mobileFeatures[index]}
+                </span>
               </li>
             ))}
           </ul>
@@ -156,7 +158,9 @@ function Pricing() {
               <li key={feature}>
                 <CheckIcon />
                 <span className="landing-price-feature-desktop">{feature}</span>
-                <span className="landing-price-feature-mobile">{L.print.mobileFeatures[index]}</span>
+                <span className="landing-price-feature-mobile">
+                  {L.print.mobileFeatures[index]}
+                </span>
               </li>
             ))}
           </ul>

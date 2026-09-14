@@ -265,7 +265,11 @@ export function GeneratingStage({ draft, onChange }: Props) {
   const artwork = [
     ...(coverSrc ? [{ id: "cover", url: coverSrc, label: t.journey.generating.coverLabel }] : []),
     ...(introSrc ? [{ id: "intro", url: introSrc, label: t.journey.generating.introLabel }] : []),
-    ...pages.map((page) => ({ id: `spread-${page.spread}`, url: page.url, label: t.journey.generating.pageAlt(page.spread) })),
+    ...pages.map((page) => ({
+      id: `spread-${page.spread}`,
+      url: page.url,
+      label: t.journey.generating.pageAlt(page.spread),
+    })),
   ];
   const renderedArt = Boolean(introSrc || draft.preview?.coverRevisionId || newest);
 
@@ -325,9 +329,13 @@ export function GeneratingStage({ draft, onChange }: Props) {
               />
             ) : null}
             {!renderedArt ? <div className="ux-cover-shade" aria-hidden="true" /> : null}
-            {!renderedArt ? <img className="ux-cover-brand" src={BEKI_MARK_WHITE_URL} alt={BRAND_NAME} /> : null}
+            {!renderedArt ? (
+              <img className="ux-cover-brand" src={BEKI_MARK_WHITE_URL} alt={BRAND_NAME} />
+            ) : null}
             {bookKnown ? (
-              !renderedArt ? <h2>{bookTitle}</h2> : null
+              !renderedArt ? (
+                <h2>{bookTitle}</h2>
+              ) : null
             ) : (
               <span className="generation-book-loading" role="status">
                 <Loader2 aria-hidden="true" />
@@ -418,7 +426,11 @@ export function GeneratingStage({ draft, onChange }: Props) {
                 aria-pressed={artSrc === art.url}
                 onClick={() => setSelectedArt(art.url)}
               >
-                <img src={art.url} alt={art.label} className={artSrc === art.url ? "is-newest" : ""} />
+                <img
+                  src={art.url}
+                  alt={art.label}
+                  className={artSrc === art.url ? "is-newest" : ""}
+                />
               </button>
             ))}
           </div>

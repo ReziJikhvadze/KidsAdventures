@@ -509,41 +509,41 @@ function WorldStageArt({
   const art = { backgroundImage: `url("${SELECTOR_ART[variant]}")` };
   const standaloneMobile = variant === "mobile" && !embedded;
   const header = (
-        <header className="experience-header">
-          {/*
+    <header className="experience-header">
+      {/*
             The only way off this page used to be the browser's own back button: the map is a
             full-viewport painting with no app header above it, which is deliberate, but it left
             a parent who opened it from a book cover with nowhere to go. Neither this nor the
             wordmark belongs to a copy of the map sitting inside another page.
           */}
-          {!embedded ? (
-            /*
+      {!embedded ? (
+        /*
               The arrow, and only the arrow. The wordmark beside it went to the home page while
               the arrow went one step back, so the corner of the map offered two different
               exits and the larger one abandoned whatever the parent had started.
             */
-            <div className="map-header-start">
-              <a className="map-back" href={backHref} aria-label={copy.backLabel}>
-                <ArrowLeft aria-hidden="true" />
-              </a>
-              {/* The mark is back beside the arrow, as an image rather than the link it used
+        <div className="map-header-start">
+          <a className="map-back" href={backHref} aria-label={copy.backLabel}>
+            <ArrowLeft aria-hidden="true" />
+          </a>
+          {/* The mark is back beside the arrow, as an image rather than the link it used
                   to be — the row was always drawn for the two of them. */}
-              <BekiMark className="map-header-mark" decorative />
-            </div>
-          ) : null}
+          <BekiMark className="map-header-mark" decorative />
+        </div>
+      ) : null}
 
-          <div className="headline">
-            <p>{copy.eyebrow}</p>
-            <h1>{copy.title}</h1>
-            <span>{copy.lead}</span>
-          </div>
+      <div className="headline">
+        <p>{copy.eyebrow}</p>
+        <h1>{copy.title}</h1>
+        <span>{copy.lead}</span>
+      </div>
 
-          {/*
+      {/*
             No progress rail. It named three steps — world, hero, book — above a painting whose
             whole proposition is that choosing is one tap; a parent who has not started yet does
             not need to be told there are two more forms behind this one.
           */}
-        </header>
+    </header>
   );
 
   return (
