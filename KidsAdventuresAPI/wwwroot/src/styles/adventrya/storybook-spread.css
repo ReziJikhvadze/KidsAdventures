@@ -862,11 +862,23 @@
   font-family: var(--font-body);
   text-align: left;
 }
+/*
+  The words wrap to the card, rather than keeping the page's line breaks.
+
+  `pre-line` holds the breaks the story was typeset with - one sentence to a line, which is right
+  on a 220mm printed leaf and wrong on a 350px card. Six short sentences became six short lines
+  with the right-hand third of the card empty beside them, and the block read as a list rather
+  than as the page it is quoting.
+
+  The printed book keeps its own breaks: this rule is the caption's alone, and the caption exists
+  only on a phone. The breaks are still in the text and still reach the press composer untouched.
+*/
 .storybook-spread-caption > p {
   margin: 0;
   font-size: 12.5px;
   line-height: 1.5;
-  white-space: pre-line;
+  white-space: normal;
+  text-wrap: pretty;
 }
 .storybook-spread-caption > p + p {
   margin-top: 6px;

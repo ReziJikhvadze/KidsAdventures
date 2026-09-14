@@ -119,6 +119,33 @@ export function GeneratingStage({ draft, onChange }: Props) {
     setError(null);
     setStillWorking(false);
 
+    /*
+      What the order already knows, asked for before anything is waited on.
+
+      Everything this screen can show - the cover the parent picked, the title, how far the book
+      has got - arrives with the first status. That first status used to sit behind
+      `confirmOrder`, which reconciles the payment with the provider and, for a card paid through
+      Bog, is a round trip to the bank followed by fulfilment running inline. So the screen stood
+      empty for as long as that took: no cover, no progress line, a blank board under a spinner
+      on the page a parent lands on straight after paying.
+
+      Fired first and not awaited. It changes nothing about the reconciliation below - that still
+      runs, and the poll still starts after it - it only stops the screen pretending to know
+      nothing while the server already knows plenty.
+    */
+    void ordersApi
+      .getOrderStatus(orderId)
+      .then((current) => {
+        if (cancelled) return;
+        setKnown(current);
+        if (current.progressMessage) setProgress(current.progressMessage);
+        if (typeof current.progressPercent === "number") setPercent(current.progressPercent);
+        if (current.packStatus) setBookStatus(current.packStatus);
+      })
+      .catch(() => {
+        /* the poll below is the one that has to succeed; this is only an early look */
+      });
+
     void (async () => {
       try {
         // Returning from the bank: reconcile payment before polling readiness.
@@ -340,19 +367,36 @@ export function GeneratingStage({ draft, onChange }: Props) {
           the job did not make; this one moves when the book does and says how many pictures
           exist, which is the fact a waiting parent actually wants.
         */}
-        {percent !== null || spreadsDone > 0 ? (
-          <div className="generation-progress" role="status" aria-live="polite">
-            <div className="preview-loader-progress" aria-hidden="true">
-              <i style={{ width: `${Math.max(2, Math.min(100, percent ?? 0))}%` }} />
-            </div>
-            <p className="generation-progress-line">
-              {percent !== null ? <strong>{percent}%</strong> : null}
-              {spreadsDone > 0 ? (
-                <span>{t.journey.generating.spreadsDrawn(spreadsDone, SPREAD_COUNT)}</span>
-              ) : null}
-            </p>
+        {/*
+          The bar is here from the first frame; only the number waits for the job.
+
+          It used to appear with the first reported percentage, which on this screen is the first
+          answered poll - so a parent who had just paid watched a page with no bar on it at all
+          and no way to tell whether anything had started. Sweeping until there is a number keeps
+          the promise the comment above is about: nothing is invented, the bar says "working"
+          rather than "this much of it is done", and it stops sweeping the moment the job reports.
+        */}
+        <div className="generation-progress" role="status" aria-live="polite">
+          <div
+            className="preview-loader-progress"
+            data-indeterminate={percent === null && spreadsDone === 0 ? "" : undefined}
+            aria-hidden="true"
+          >
+            <i
+              style={
+                percent === null && spreadsDone === 0
+                  ? undefined
+                  : { width: `${Math.max(2, Math.min(100, percent ?? 0))}%` }
+              }
+            />
           </div>
-        ) : null}
+          <p className="generation-progress-line">
+            {percent !== null ? <strong>{percent}%</strong> : null}
+            {spreadsDone > 0 ? (
+              <span>{t.journey.generating.spreadsDrawn(spreadsDone, SPREAD_COUNT)}</span>
+            ) : null}
+          </p>
+        </div>
 
         {/*
           The pictures themselves, under the line that counts them.

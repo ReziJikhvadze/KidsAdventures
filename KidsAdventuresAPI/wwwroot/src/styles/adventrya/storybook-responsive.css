@@ -54,6 +54,26 @@
   .storybook-cover-copy span {
     font-size: clamp(8px, 4.2cqi, 11px);
   }
+  /*
+    ── The title on a phone's half-width cover ──
+
+    An open spread puts the shut cover at half the screen: 188px on a 375px phone, and a copy box
+    of about 137. The rule above floors at 14px, which was set for a cover twice that wide - at
+    this size a real Georgian title ("ანუშკი და დინოზავრის ფერადი კვერცხი") runs past the four
+    lines it is clamped to and past the 46% of the board it may fill, so the book's own name was
+    cut off on its own cover.
+
+    Smaller floor and more lines, on the narrow cover only. The whole title is the point: it
+    carries the child's name, and a name that does not fit is the one thing this face must not do.
+  */
+  .storybook.is-narrow-spread .storybook-cover-copy {
+    max-height: 58%;
+  }
+  .storybook.is-narrow-spread .storybook-cover-copy h2 {
+    font-size: clamp(10px, 6.4cqi, 27px);
+    -webkit-line-clamp: 6;
+    line-height: 1.15;
+  }
   .storybook-page-copy > p {
     font-size: clamp(10px, 3.2vw, 12px);
   }
