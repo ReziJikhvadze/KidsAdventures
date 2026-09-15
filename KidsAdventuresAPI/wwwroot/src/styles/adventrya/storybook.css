@@ -1497,10 +1497,8 @@
   white-space: normal;
 }
 
-/* The landing sample shows the book, without reader captions or page counters. */
+/* Hide only page counters in the landing sample; retain the story and reading controls. */
 .storybook.storybook-hero .storybook-progress,
-.storybook.storybook-hero .storybook-gesture-hint,
-.storybook.storybook-hero .storybook-spread-caption,
 .storybook.storybook-hero .storybook-page-content > i,
 .storybook.storybook-hero .storybook-spread-prose > i {
   display: none;
@@ -1514,13 +1512,6 @@
     max-height: none;
     aspect-ratio: 1.1;
   }
-}
-
-.storybook.storybook-hero .storybook-cover-copy,
-.storybook.storybook-hero .storybook-page-copy,
-.storybook.storybook-hero .storybook-spread-prose,
-.storybook.storybook-hero .storybook-controls button > span {
-  display: none;
 }
 
 .storybook.storybook-hero .storybook-controls {
