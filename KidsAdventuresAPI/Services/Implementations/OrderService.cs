@@ -1135,7 +1135,7 @@ public sealed class OrderService(
                   cover at a storage path this account may read. It is a stand-in and is
                   dropped the moment the book has its own, which is why it is read second.
                 */
-                response.CoverImageUrl = NullIfBlank(book.CoverImageUrl) ?? preview.CoverImageUrl;
+                response.CoverImageUrl = preview.CoverImageUrl ?? NullIfBlank(book.CoverImageUrl);
 
                 /*
                   The title the parent was shown, until the book has written its own.
@@ -1267,7 +1267,10 @@ public sealed class OrderService(
             var introUrl = FastPreviewPlan.IsFast(run) && !string.IsNullOrWhiteSpace(run.CoverImageUrl)
                 ? $"/api/adventure-packs/guest-preview/{run.Id}/intro"
                 : null;
-            return (title, NullIfBlank(run.CoverImageUrl), introUrl);
+            var coverUrl = string.IsNullOrWhiteSpace(run.CoverImageUrl)
+                ? null
+                : $"/api/adventure-packs/guest-preview/{run.Id}/cover";
+            return (title, coverUrl, introUrl);
         }
         catch (Exception ex)
         {

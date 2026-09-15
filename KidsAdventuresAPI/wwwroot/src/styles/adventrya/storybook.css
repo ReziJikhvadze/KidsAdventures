@@ -1496,3 +1496,35 @@
   text-align: center;
   white-space: normal;
 }
+
+/* The landing sample shows the book, without reader captions or page counters. */
+.storybook.storybook-hero .storybook-progress,
+.storybook.storybook-hero .storybook-gesture-hint,
+.storybook.storybook-hero .storybook-spread-caption,
+.storybook.storybook-hero .storybook-page-content > i,
+.storybook.storybook-hero .storybook-spread-prose > i {
+  display: none;
+}
+
+@media (min-width: 781px) {
+  /* Size the width from the available height instead of squashing a wide board
+     with max-height while its cover image keeps the correct aspect ratio. */
+  .ux-preview-product .storybook.storybook-preview.is-closed .storybook-volume {
+    width: min(var(--book-width), 100%, calc(min(470px, 52svh) * 1.1));
+    max-height: none;
+    aspect-ratio: 1.1;
+  }
+}
+
+.storybook.storybook-hero .storybook-cover-copy,
+.storybook.storybook-hero .storybook-page-copy,
+.storybook.storybook-hero .storybook-spread-prose,
+.storybook.storybook-hero .storybook-controls button > span {
+  display: none;
+}
+
+.storybook.storybook-hero .storybook-controls {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+}

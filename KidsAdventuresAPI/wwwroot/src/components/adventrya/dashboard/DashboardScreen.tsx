@@ -368,7 +368,8 @@ export function DashboardScreen({
     () => childPacks.filter((p) => isPackGenerating(p) && !isPackFailed(p)),
     [childPacks],
   );
-  const failedPacks = useMemo(() => childPacks.filter((p) => isPackFailed(p)), [childPacks]);
+  // A failed purchase needs attention regardless of which child's shelf is selected.
+  const failedPacks = useMemo(() => packs.filter((p) => isPackFailed(p)), [packs]);
   const shelfPacks = useMemo(
     () => childPacks.filter((p) => !isPackGenerating(p) && !isPackFailed(p)),
     [childPacks],
@@ -823,7 +824,14 @@ export function DashboardScreen({
                   offers the one thing that helps, which is reaching a person.
                 */}
                 {failedPacks.map((pack) => (
-                  <FailedBookCard key={pack.id} pack={pack} heroName={heroName} />
+                  <FailedBookCard
+                    key={pack.id}
+                    pack={pack}
+                    heroName={
+                      characters.find((child) => child.id === pack.primaryCharacterId)?.name ||
+                      t.common.fallbackHeroName
+                    }
+                  />
                 ))}
                 {visiblePacks.map((pack) => (
                   <BookCard

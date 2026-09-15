@@ -624,7 +624,9 @@ public sealed class BekiPackFulfillment(
         var pack = await packRepository.GetByIdAsync(packId, userId, cancellationToken)
             ?? throw new InvalidOperationException("Book not found.");
 
+        var timer = System.Diagnostics.Stopwatch.StartNew();
         var book = await LoadStoredBookAsync(pack, cancellationToken);
+        var loadMilliseconds = timer.ElapsedMilliseconds;
 
         /*
           Composed, never prepared.
@@ -634,9 +636,13 @@ public sealed class BekiPackFulfillment(
           a PDF here, and it is the one that normalizes and may upscale; a parent downloading
           their child's book has no use for either, and printing is not what this call is for.
         */
-        return composer
+        var pdf = composer
             .ComposeReading(book.Plan, book.WrapComposite, book.Spreads, book.Personalization)
             .Pdf;
+        logger.LogInformation(
+            "Customer PDF {PackId}: assets {LoadMs}ms, composition {ComposeMs}ms, size {Bytes} bytes.",
+            pack.Id, loadMilliseconds, timer.ElapsedMilliseconds - loadMilliseconds, pdf.Length);
+        return pdf;
     }
 
     public async Task<byte[]> PreparePrintPdfAsync(Guid packId, CancellationToken cancellationToken)
